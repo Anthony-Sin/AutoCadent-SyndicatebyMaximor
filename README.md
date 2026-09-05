@@ -25,7 +25,7 @@ With AO installed, authenticated and this project registered, enable real worker
 AUTOCADENT_ENABLE_AO=1 uv run uvicorn autocadent.api:app --host 127.0.0.1 --port 8766
 ```
 
-Use the connection menu to select **Supervisor → actual AO worker → evaluator**. The API calls `ao spawn`; that worker runs the CAD job and returns its real `AO_SESSION_ID`. The checked-in [AO runtime report](docs/evidence/ao-runtime.json) records a successful dispatch through worker `autocadent-syndicatebymaximor-3`. Jobs are serialized, retained in `.runs/jobs/`, and time out after 15 minutes. Timed-out AO sessions require inspection/termination in the AO dashboard.
+Use the connection menu to select **Supervisor → actual AO worker → evaluator**. The API calls `ao spawn` with `--harness` (default `opencode`, via `AUTOCADENT_AO_HARNESS`) and `--model` (default `opencode/muse-spark-1.3-contributor-free`, via `AUTOCADENT_AO_MODEL`); that worker runs the CAD job and returns its real `AO_SESSION_ID`. The checked-in [AO runtime report](docs/evidence/ao-runtime.json) records a successful dispatch through worker `autocadent-syndicatebymaximor-3`. Jobs are serialized, retained in `.runs/jobs/`, and time out after 15 minutes. Timed-out AO sessions require inspection/termination in the AO dashboard.
 
 ### Your designs, saved in the browser
 

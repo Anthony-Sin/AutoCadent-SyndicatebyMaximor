@@ -71,7 +71,7 @@ def execute(job_id, req):
                     '. It builds real CadQuery geometry, evaluates dimensions, applies bounded failure repairs, and writes job artifacts. '
                     'Report the actual final status and AO session id. Do not simulate a result. No extra implementation work.')
             proc=subprocess.run(['ao','spawn','--project',os.getenv('AUTOCADENT_AO_PROJECT','autocadent-syndicatebymaximor'),
-                                 '--name','cad-'+job_id[:8],'--harness',os.getenv('AUTOCADENT_AO_HARNESS','codex'),'--prompt',prompt],
+                                 '--name','cad-'+job_id[:8],'--harness',os.getenv('AUTOCADENT_AO_HARNESS','opencode'),'--model',os.getenv('AUTOCADENT_AO_MODEL','opencode/muse-spark-1.3-contributor-free'),'--prompt',prompt],
                                 capture_output=True,text=True,timeout=60)
             if proc.returncode: raise RuntimeError('AO spawn failed; inspect the runner AO configuration')
             save_json(folder/'dispatch.json',{'command':'ao spawn','dispatched_at':time.time(),'supervisor_session':os.getenv('AO_SESSION_ID'),'job_id':job_id})
