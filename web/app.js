@@ -5,6 +5,7 @@ const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&g
 let report, iteration=1, artifactBase='artifacts/demo/', currentGroup='all', translucent=true, exploded=false, runner='', token='', execution='deterministic', jobBusy=false;
 let scene, camera, renderer, controls, assembly, renderRunning=false;
 const DESIGNS_KEY='autocadent.designs', DEMO_SPEC={length:0,width:0,mast_height:0};
+let model='rove1';
 let pendingMeshes=null;
 function setViewStatus(msg,mode){const el=document.getElementById('view-status');if(!el)return;el.textContent=msg||'';el.hidden=!msg;el.dataset.mode=mode||'info';window.__viewStatus=msg||''}
 function tick(){if(!renderer)return;controls.update();renderer.render(scene,camera);updateScale()}
@@ -52,18 +53,42 @@ function drawMeshes(meshes){
  for(const p of meshes){try{
   const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(p.vertices.flat(),3));geometry.setIndex(p.triangles.flat());geometry.computeVertexNormals();
   const material=new THREE.MeshStandardMaterial({color:p.color,roughness:.58,metalness:.12,transparent:true,opacity:translucent?.58:1,side:THREE.DoubleSide,depthWrite:!translucent});
-  const mesh=new THREE.Mesh(geometry,material);mesh.userData=p;const edges=new THREE.LineSegments(new THREE.EdgesGeometry(geometry,25),new THREE.LineBasicMaterial({color:p.group==='electronics'?0x286f70:0x536059,transparent:true,opacity:.5}));mesh.add(edges);assembly.add(mesh)
+  const mesh=new THREE.Mesh(geometry,material);mesh.userData=p;const edges=new THREE.LineSegments(new THREE.EdgesGeometry(geometry,25),new THREE.LineBasicMaterial({color:p.group==='electronics'?0x286f70:0x536059,transparent:true,opacity:.5}));if(p.edges!==false)mesh.add(edges);assembly.add(mesh)
  }catch(e){console.warn('Skipping a non-renderable part:',p?.name,e)}}
   scene.add(assembly);
   updateModel();setViewStatus('','');
 }
+function fitAssembly(){if(!assembly||!camera)return;const box=new THREE.Box3().setFromObject(assembly);const c=box.getCenter(new THREE.Vector3()),s=box.getSize(new THREE.Vector3());const maxDim=Math.max(s.x,s.y,s.z)||1;const dist=maxDim/(2*Math.tan(camera.fov*Math.PI/360))*1.35;const dir=camera.position.clone().sub(controls.target);if(!dir.lengthSq())dir.set(1,-1,.7);dir.normalize();controls.target.copy(c);camera.position.copy(c.clone().add(dir.multiplyScalar(dist)));camera.near=Math.max(.1,dist/100);camera.far=dist*20;camera.updateProjectionMatrix();controls.update()}
 function updateModel(){if(!assembly)return;assembly.children.forEach((mesh,i)=>{mesh.visible=currentGroup==='all'||mesh.userData.group===currentGroup;mesh.material.opacity=translucent?.56:1;mesh.material.depthWrite=!translucent;mesh.position.z=exploded?(mesh.userData.group==='electronics'?48:mesh.userData.name==='Sensor mast'?30:mesh.userData.name==='Board tray'?20:0):0; if(mesh.userData.group==='mobility')mesh.position.y=exploded?(i%4<2?-22:22):0;});}
 $$('[data-group]').forEach(b=>b.onclick=()=>{currentGroup=b.dataset.group;$$('[data-group]').forEach(el=>el.classList.toggle('active',el===b));updateModel()});
 $('#reset-view').onclick=reset;$('#wireframe').onclick=()=>{translucent=!translucent;$('#wireframe').setAttribute('aria-pressed',translucent);updateModel()};$('#explode').onclick=()=>{exploded=!exploded;$('#explode').setAttribute('aria-pressed',exploded);updateModel()};
 function zoom(f){camera.position.sub(controls.target).multiplyScalar(f).add(controls.target);controls.update()};$('#zoom-in').onclick=()=>zoom(.85);$('#zoom-out').onclick=()=>zoom(1.15);
 function tab(name){const views={dashboard:'dashboard',preview:'preview',explorer:'preview',files:'files',designs:'designs',schematic:'schematic',layout:'layout'};const key=views[name]||'dashboard';const tabKey=key==='dashboard'?null:key;$$('[data-tab]').forEach(b=>{const on=b.dataset.tab===tabKey;b.classList.toggle('active',!!on);if(on)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});['dashboard','preview','files','designs','schematic','layout'].forEach(n=>$(`#${n}-view`).hidden=n!==key);document.body.classList.toggle('is-landing',key==='dashboard');const back=$('#back-dashboard');if(back)back.hidden=key==='dashboard';if(key==='preview'){window.dispatchEvent(new Event('resize'));startRender()}else stopRender();const names={dashboard:'Dashboard',preview:'Explorer',files:'Files',designs:'Designs',schematic:'Schematic',layout:'Layout'};const crumb=$('#view-crumb');if(crumb)crumb.textContent=names[key];if(key==='designs')renderDesigns();const want='#/'+(key==='preview'?'explorer':key);if(location.hash!==want)history.replaceState(null,'',want);}
 $$('[data-tab]').forEach(b=>b.onclick=()=>{location.hash='#/'+(b.dataset.tab==='preview'?'explorer':b.dataset.tab)});window.addEventListener('hashchange',()=>{const h=(location.hash||'').replace(/^#\/?/,'');tab(h||'dashboard')});
-document.addEventListener('click',e=>{const v=e.target.closest('[data-evidence]');if(v){if(v.dataset.evidence==='report')showEvidence();else showBenchmark();return}const g=e.target.closest('[data-goto]');if(!g)return;e.preventDefault();location.hash='#/'+(g.dataset.goto==='preview'?'explorer':g.dataset.goto);});
+function syncModelButtons(){$$('[data-model]').forEach(b=>{const on=b.dataset.model===model;b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on))})}
+async function loadModel(name){
+ model=name;syncModelButtons();
+ if(name==='orion'){
+  setViewStatus('Loading reference geometry…','loading');
+  try{
+   drawMeshes(await json('artifacts/orion/mesh.json'));
+   $('#brief-text').textContent='Orion Quadruped by Ashish Agrahari — reference geometry (16 parts, zero-pose URDF assembly). Unevaluated; not measured.';
+   $('#revision-label').textContent='ORION · REFERENCE — UNEVALUATED';
+   $('#project-state').textContent='Reference geometry';
+   $('#run-label').textContent='REFERENCE GEOMETRY';
+   $('#replay-btn').hidden=true;
+   fitAssembly();
+   const cap=$('#geometry-caption');if(cap)cap.textContent='ORION QUADRUPED · REFERENCE STL ASSEMBLY';
+  }catch(e){setViewStatus('Reference geometry could not load.','error');toast('Orion geometry unavailable: '+e.message);await loadModel('rove1');return}
+ }else{
+  $('#replay-btn').hidden=false;
+  const cap=$('#geometry-caption');if(cap)cap.textContent='ACTUAL CADQUERY GEOMETRY';
+  if(report){syncBriefAndDims();await loadIteration(report.final_iteration)}
+ }
+ tab('preview');
+}
+$$('[data-model]').forEach(b=>b.onclick=()=>loadModel(b.dataset.model));
+document.addEventListener('click',e=>{const a=e.target.closest('[data-action]');if(a){if(a.dataset.action==='new-project')createFromTemplate();return}const v=e.target.closest('[data-evidence]');if(v){if(v.dataset.evidence==='report')showEvidence();else showBenchmark();return}const g=e.target.closest('[data-goto]');if(!g)return;e.preventDefault();location.hash='#/'+(g.dataset.goto==='preview'?'explorer':g.dataset.goto);});
 function renderEvidence(){
   const item=report.iterations[iteration-1], last=report.iterations.at(-1);
   const evCls=m=>/fail/i.test(m)?'failure':/pass/i.test(m)?'pass':'';
@@ -74,7 +99,7 @@ function renderEvidence(){
  $('#run-label').textContent=report.execution==='ao-worker'?'AO WORKER RESULT':runner?'LOCAL KERNEL RESULT':'RECORDED RUN';
  renderFiles();
 }
-async function loadIteration(n){iteration=n;renderEvidence();setViewStatus('Loading geometry…','loading');try{drawMeshes(await json(`${artifactBase}iteration-${iteration}/mesh.json`))}catch(e){setViewStatus('Geometry could not load — check the connection and refresh.','error');toast('Geometry could not load: '+e.message)}}
+async function loadIteration(n){iteration=n;model='rove1';syncModelButtons();renderEvidence();setViewStatus('Loading geometry…','loading');try{drawMeshes(await json(`${artifactBase}iteration-${iteration}/mesh.json`))}catch(e){setViewStatus('Geometry could not load — check the connection and refresh.','error');toast('Geometry could not load: '+e.message)}}
 $('#replay-btn').onclick=()=>loadIteration(iteration===1?report.iterations.length:1);
 const extOf=n=>(n.split('.').pop()||'').toUpperCase().slice(0,4)||'FILE';
 let boardMeta=null;
@@ -93,7 +118,7 @@ function renderDashboard(){
     <article class="dash-card"><span class="eyebrow">CHECKS SUMMARY</span>${keyChecks.map(c=>`<div class="dash-check ${c.passed?'':'fail'}"><span>${escape(c.name)}</span><b>${c.measured.toFixed(1)} <small>mm</small></b><em>${c.passed?'PASS':'FAIL'}</em></div>`).join('')}<p class="muted">${solidCheck?escape(String(solidCheck.measured))+' '+escape(solidCheck.unit||'solids'):''} · measured on solid geometry, not a print or stress test.</p><div class="dash-actions"><button class="text-button" data-evidence="report">View evidence ↗</button><button class="text-button" data-evidence="benchmark">Benchmark ↗</button></div></article>
     <article class="dash-card"><span class="eyebrow">REPAIR BENCHMARK</span><div class="bench-big" id="bench-figure">…</div><p class="muted" id="bench-note">Loading regression corpus…</p></article>
     <article class="dash-card"><span class="eyebrow">REVISIONS</span>${report.iterations.map(it=>{const ev=it.evaluation,ok=ev.checks.filter(c=>c.passed).length;return `<div class="rev-row ${ev.passed?'':'fail'}"><span class="mono">REV ${String(it.iteration).padStart(2,'0')}</span><span>${it.spec.length} × ${it.spec.width} mm · t ${it.spec.thickness} / w ${it.spec.wall} / c ${it.spec.clearance}<small>${ok}/${ev.checks.length} checks · ${ev.passed?'accepted':'failed'}</small></span><em>${ev.passed?'PASS':'FAIL'}</em></div>`}).join('')}<p class="muted">Session ${escape(report.ao_session||'—')} · ${escape(report.execution||'')} run.</p></article>
-    <article class="dash-card"><span class="eyebrow">PROJECTS</span><div class="rev-row"><span class="mono">ROVE–1</span><span>Recorded example · ${report.iterations.length} revisions<small>${escape(report.description||'')}</small></span><em>${report.passed?'PASS':'FAIL'}</em></div><div class="rev-row"><span class="mono">MINE</span><span id="dash-designs-note">Loading browser library…</span></div><div class="rev-row"><span class="mono">REF</span><span>Orion Quadruped<small>External quadruped build — reference only, not evaluated here.</small></span><a class="text-button" href="https://github.com/AshishA26/Orion-Quadruped" target="_blank" rel="noreferrer">Open ↗</a></div><div class="dash-actions"><button class="text-button" data-goto="designs">Open designs ↗</button></div></article>
+    <article class="dash-card"><span class="eyebrow">PROJECTS</span><div class="rev-row"><span class="mono">ROVE–1</span><span>Recorded example · ${report.iterations.length} revisions<small>${escape(report.description||'')}</small></span><em>${report.passed?'PASS':'FAIL'}</em></div><div class="rev-row"><span class="mono">MINE</span><span id="dash-designs-note">Loading browser library…</span></div><div class="rev-row"><span class="mono">REF</span><span>Orion Quadruped<small>External quadruped build — load it in the Explorer via the Orion switch. Reference only, not evaluated.</small></span><a class="text-button" href="https://github.com/AshishA26/Orion-Quadruped" target="_blank" rel="noreferrer">Open ↗</a></div><div class="dash-actions"><button class="text-button" data-action="new-project">＋ New project</button><button class="text-button" data-goto="designs">Open designs ↗</button></div></article>
   </div>
   <div class="dash-links">${nav('preview','Assembly explorer','orbit · isolate · explode')}${nav('files','Build outputs','STEP · STL · ZIP · source + hashes')}${nav('schematic','Connectivity diagram','four nets · J1 ↔ J2')}${nav('layout','Board layout','KiCad export · DRC evidence')}</div>`;
   try{const mine=loadDesigns();const el=document.getElementById('dash-designs-note');if(el)el.textContent=mine.length?mine.length+' saved in this browser — open via Designs.' :'No saved designs yet — create one in Designs.'}catch{}
@@ -140,6 +165,7 @@ function exportDesign(id){
  downloadText(slug(d.name)+'.autocadent.json',JSON.stringify(designBundle(d),null,2));toast('Exported "'+d.name+'" bundle.');
 }
 function openDesign(id){
+model='rove1';syncModelButtons();
  if(id==='__demo'){pendingDesign=null;const m=$('#design-mode');if(m)m.hidden=true;$('#length').value=DEMO_SPEC.length;$('#width').value=DEMO_SPEC.width;$('#mast_height').value=DEMO_SPEC.mast_height;toast('Rove–1 recorded example loaded.');tab('preview');return}
  const list=loadDesigns(),d=list.find(x=>x.id===id);if(!d)return;
  pendingDesign=d;const last=d.revisions[d.revisions.length-1];
