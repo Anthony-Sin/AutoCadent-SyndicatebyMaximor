@@ -1,0 +1,217 @@
+{
+  "job_id": "ab3e0a81-3a74-4da1-a386-b0d950ebec2c",
+  "dispatch": {
+    "command": "ao spawn",
+    "dispatched_at": 1788629734.8309104,
+    "supervisor_session": "autocadent-syndicatebymaximor-2",
+    "job_id": "ab3e0a81-3a74-4da1-a386-b0d950ebec2c"
+  },
+  "completion": {
+    "execution": "ao-worker",
+    "ao_session": "autocadent-syndicatebymaximor-3"
+  },
+  "report": {
+    "schema_version": 1,
+    "project": "Rove-1",
+    "description": "AO runtime verification: a 150 mm educational rover with a 60 x 40 mm board and sensor mast",
+    "execution": "ao-worker",
+    "created_at": "2026-09-05T17:35:45.238813+00:00",
+    "ao_session": "autocadent-syndicatebymaximor-3",
+    "scope": "Parameterized educational assembly; wheel/sensor envelopes. No physical or electrical certification.",
+    "iterations": [
+      {
+        "iteration": 1,
+        "spec": {
+          "length": 150,
+          "width": 90,
+          "thickness": 1.2,
+          "wall": 1.2,
+          "clearance": 0.1,
+          "mast_height": 52
+        },
+        "evaluation": {
+          "passed": false,
+          "checks": [
+            {
+              "name": "Solid validity",
+              "measured": 18,
+              "requirement": "18 valid solids",
+              "passed": true,
+              "unit": "solids",
+              "method": "OpenCASCADE isValid and positive volume; not a dimensional check"
+            },
+            {
+              "name": "Chassis thickness",
+              "measured": 1.2,
+              "requirement": "\u2265 2.4 mm",
+              "passed": false,
+              "unit": "mm",
+              "method": "B-rep measurement"
+            },
+            {
+              "name": "Tray wall",
+              "measured": 1.2,
+              "requirement": "\u2265 2.4 mm",
+              "passed": false,
+              "unit": "mm",
+              "method": "Minimum of four paired planar wall-face offsets; not a global wall-thickness test"
+            },
+            {
+              "name": "Board clearance",
+              "measured": 0.1,
+              "requirement": "\u2265 0.8 mm",
+              "passed": false,
+              "unit": "mm",
+              "method": "Minimum B-rep distance from board envelope to tray sidewalls"
+            },
+            {
+              "name": "Chassis length",
+              "measured": 150.0,
+              "requirement": "150 \u00b1 0.01 mm",
+              "passed": true,
+              "unit": "mm",
+              "method": "B-rep measurement"
+            },
+            {
+              "name": "Tray edge margin",
+              "measured": 23.7,
+              "requirement": "\u2265 4 mm",
+              "passed": true,
+              "unit": "mm",
+              "method": "B-rep measurement"
+            }
+          ]
+        },
+        "seconds": 0.625
+      },
+      {
+        "iteration": 2,
+        "spec": {
+          "length": 150,
+          "width": 90,
+          "thickness": 2.4,
+          "wall": 2.4,
+          "clearance": 0.8,
+          "mast_height": 52
+        },
+        "evaluation": {
+          "passed": true,
+          "checks": [
+            {
+              "name": "Solid validity",
+              "measured": 18,
+              "requirement": "18 valid solids",
+              "passed": true,
+              "unit": "solids",
+              "method": "OpenCASCADE isValid and positive volume; not a dimensional check"
+            },
+            {
+              "name": "Chassis thickness",
+              "measured": 2.4,
+              "requirement": "\u2265 2.4 mm",
+              "passed": true,
+              "unit": "mm",
+              "method": "B-rep measurement"
+            },
+            {
+              "name": "Tray wall",
+              "measured": 2.4,
+              "requirement": "\u2265 2.4 mm",
+              "passed": true,
+              "unit": "mm",
+              "method": "Minimum of four paired planar wall-face offsets; not a global wall-thickness test"
+            },
+            {
+              "name": "Board clearance",
+              "measured": 0.8,
+              "requirement": "\u2265 0.8 mm",
+              "passed": true,
+              "unit": "mm",
+              "method": "Minimum B-rep distance from board envelope to tray sidewalls"
+            },
+            {
+              "name": "Chassis length",
+              "measured": 150.0,
+              "requirement": "150 \u00b1 0.01 mm",
+              "passed": true,
+              "unit": "mm",
+              "method": "B-rep measurement"
+            },
+            {
+              "name": "Tray edge margin",
+              "measured": 21.8,
+              "requirement": "\u2265 4 mm",
+              "passed": true,
+              "unit": "mm",
+              "method": "B-rep measurement"
+            }
+          ]
+        },
+        "seconds": 0.644
+      }
+    ],
+    "events": [
+      {
+        "role": "Supervisor",
+        "message": "Accepted bounded rover specification. Run CAD kernel and dimensional evaluator."
+      },
+      {
+        "role": "CAD evaluator",
+        "message": "Iteration 1: FAIL. Chassis thickness: 1.2 mm; Tray wall: 1.2 mm; Board clearance: 0.1 mm"
+      },
+      {
+        "role": "Repair policy",
+        "message": "Apply measured-failure corrections: {\"thickness\": 2.4, \"wall\": 2.4, \"clearance\": 0.8}"
+      },
+      {
+        "role": "CAD evaluator",
+        "message": "Iteration 2: PASS. "
+      }
+    ],
+    "passed": true,
+    "seconds": 1.27,
+    "final_iteration": 2,
+    "files": [
+      {
+        "name": "board-tray.stl",
+        "bytes": 1484,
+        "sha256": "074e6d11549ab6481ea03c5d4a056d738e3d81da9586884188413d6cb8d2c589"
+      },
+      {
+        "name": "cad.py",
+        "bytes": 5952,
+        "sha256": "fab5e1d934de0b91c828aa06959cf0423985b1e0953cc977eb49388aaccf3002"
+      },
+      {
+        "name": "chassis.stl",
+        "bytes": 189884,
+        "sha256": "fbcfdc1a54a6de7ba96f3b1255c6d03a30ed4df93d34c3ad9ef4bf0812a14852"
+      },
+      {
+        "name": "generate.py",
+        "bytes": 360,
+        "sha256": "2b58f4921483390220679569281a1b2925e8f23bd8493909155801a013e357ba"
+      },
+      {
+        "name": "mesh.json",
+        "bytes": 945189,
+        "sha256": "8d925d64cc4fe2302d47022866ca4cdacbd05428b3d32b6ff2a1dfd9af28e798"
+      },
+      {
+        "name": "rove-1.step",
+        "bytes": 421686,
+        "sha256": "bd9af34f67db877d09d844a518cac97da24359fb8b57b88d924393291edf07e2"
+      },
+      {
+        "name": "sensor-mast.stl",
+        "bytes": 2484,
+        "sha256": "2fc3121aea58a11f33ca693cb858d08e782ed5355d12acd0d7d456c50c1955e5"
+      },
+      {
+        "name": "spec.json",
+        "bytes": 111,
+        "sha256": "7c046f3f1cd453ba816cad544b76efa8cc4e19fac3297ac28406efe4582be20f"
+      }
+    ]
+  }
+}

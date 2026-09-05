@@ -22,3 +22,17 @@ def test_serializes_expensive_jobs():
     api.LOCK.acquire()
     try: assert client.post('/api/jobs',json={'description':'rover'}).status_code==429
     finally: api.LOCK.release()
+
+def test_real_local_job(tmp_path,monkeypatch):
+    import time
+    monkeypatch.setattr(api,'JOBS',tmp_path)
+    response=client.post('/api/jobs',json={'description':'A compact rover','spec':{'length':125}})
+    assert response.status_code==202
+    job=response.json()['id']; deadline=time.monotonic()+30
+    while time.monotonic()<deadline:
+        status=client.get('/api/jobs/'+job).json()
+        if status['status'] in ['complete','failed']: break
+        time.sleep(.1)
+    assert status['status']=='complete',status
+    assert status['report']['passed']
+    assert status['report']['iterations'][-1]['spec']['length']==125
