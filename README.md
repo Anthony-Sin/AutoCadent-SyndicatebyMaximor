@@ -67,7 +67,7 @@ See [MCP.md](docs/MCP.md) for project-scoped configuration and official package 
 
 ## Hosting and privacy
 
-`web/` is a self-contained static site with vendored Three.js (MIT). Google Fonts is optional; system fallbacks work offline. GitHub Actions deploys the feature branch to Pages; **the PR remains unmerged**. The runner remains a separately configured local service.
+`web/` is a self-contained static site with vendored Three.js (MIT). Google Fonts is optional; system fallbacks work offline. GitHub Actions deploys the feature branch to Pages; PR #1 was approved and merged into `main` on 2026-09-05, and the live site serves the merged workspace (see [docs/EVIDENCE.md](docs/EVIDENCE.md)). The runner remains a separately configured local service.
 
 The runner binds to loopback by default, validates host/origin, accepts bounded numeric inputs, and never executes user prose as code. Cross-origin access requires both `AUTOCADENT_ORIGINS` (an exact comma-separated allowlist) and `AUTOCADENT_TOKEN`. Enter the token in the connection dialog; it stays in browser memory. For a hosted runner, terminate TLS and enforce authentication for **all paths** at a reverse proxy, set `AUTOCADENT_HOSTS`, and keep AO/CAD on a private worker. Job artifacts are shareable through opaque UUID paths; do not include secrets in briefs. No hosted live runner or public credentials are deployed by this project.
 
