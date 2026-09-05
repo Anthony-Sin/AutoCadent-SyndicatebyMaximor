@@ -4,6 +4,8 @@ const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let report, iteration=1, artifactBase='artifacts/demo/', currentGroup='all', translucent=true, exploded=false, runner='', token='', execution='deterministic', jobBusy=false;
 let scene, camera, renderer, controls, assembly, renderRunning=false;
+let pendingMeshes=null;
+function setViewStatus(msg,mode){const el=document.getElementById('view-status');if(!el)return;el.textContent=msg||'';el.hidden=!msg;el.dataset.mode=mode||'info';window.__viewStatus=msg||''}
 function tick(){if(!renderer)return;controls.update();renderer.render(scene,camera);updateScale()}
 function startRender(){if(!renderer||renderRunning)return;renderRunning=true;renderer.setAnimationLoop(tick)}
 function stopRender(){if(!renderer)return;renderRunning=false;renderer.setAnimationLoop(null)}
@@ -30,7 +32,7 @@ function init3D(){
  const grid=new THREE.GridHelper(550,22,0xb8b7a3,0xd4d2bf);grid.rotation.x=Math.PI/2;grid.position.z=-25;grid.material.transparent=true;grid.material.opacity=.4;scene.add(grid);
  const ring=new THREE.Mesh(new THREE.RingGeometry(119,119.35,100),new THREE.MeshBasicMaterial({color:0xa5b2a1,transparent:true,opacity:.5,side:THREE.DoubleSide}));ring.position.z=-24.8;scene.add(ring);
  new ResizeObserver(()=>{let w=$('#viewport').clientWidth,h=$('#viewport').clientHeight;if(!w||!h)return;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix()}).observe($('#viewport'));
- reset();if(!$('#preview-view').hidden)startRender();
+ reset();if(!$('#preview-view').hidden)startRender();if(pendingMeshes){drawMeshes(pendingMeshes);pendingMeshes=null}else setViewStatus('Loading recorded geometry…','loading');
 }
 function reset(){if(!camera)return;camera.position.set(265,-330,225);controls.target.set(0,0,20);controls.update()}
 let lastScale='';
@@ -43,13 +45,15 @@ function updateScale(){
  if(key===lastScale)return;lastScale=key;bar.style.width=(140*m/dist).toFixed(0)+'px';$('#scale-label').textContent=`${m} mm`;
 }
 function drawMeshes(meshes){
- if(!scene)return;
+ if(!scene){pendingMeshes=meshes;return}
  if(assembly){assembly.traverse(o=>{o.geometry?.dispose();if(o.material)o.material.dispose()});scene.remove(assembly)}
  assembly=new THREE.Group();
- for(const p of meshes){const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(p.vertices.flat(),3));geometry.setIndex(p.triangles.flat());geometry.computeVertexNormals();
- const material=new THREE.MeshStandardMaterial({color:p.color,roughness:.58,metalness:.12,transparent:true,opacity:translucent?.58:1,side:THREE.DoubleSide,depthWrite:!translucent});
- const mesh=new THREE.Mesh(geometry,material);mesh.userData=p;const edges=new THREE.LineSegments(new THREE.EdgesGeometry(geometry,25),new THREE.LineBasicMaterial({color:p.group==='electronics'?0x286f70:0x536059,transparent:true,opacity:.5}));mesh.add(edges);assembly.add(mesh)}
- updateModel();
+ for(const p of meshes){try{
+  const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(p.vertices.flat(),3));geometry.setIndex(p.triangles.flat());geometry.computeVertexNormals();
+  const material=new THREE.MeshStandardMaterial({color:p.color,roughness:.58,metalness:.12,transparent:true,opacity:translucent?.58:1,side:THREE.DoubleSide,depthWrite:!translucent});
+  const mesh=new THREE.Mesh(geometry,material);mesh.userData=p;const edges=new THREE.LineSegments(new THREE.EdgesGeometry(geometry,25),new THREE.LineBasicMaterial({color:p.group==='electronics'?0x286f70:0x536059,transparent:true,opacity:.5}));mesh.add(edges);assembly.add(mesh)
+ }catch(e){console.warn('Skipping a non-renderable part:',p?.name,e)}}
+ updateModel();setViewStatus('','');
 }
 function updateModel(){if(!assembly)return;assembly.children.forEach((mesh,i)=>{mesh.visible=currentGroup==='all'||mesh.userData.group===currentGroup;mesh.material.opacity=translucent?.56:1;mesh.material.depthWrite=!translucent;mesh.position.z=exploded?(mesh.userData.group==='electronics'?48:mesh.userData.name==='Sensor mast'?30:mesh.userData.name==='Board tray'?20:0):0; if(mesh.userData.group==='mobility')mesh.position.y=exploded?(i%4<2?-22:22):0;});}
 $$('[data-group]').forEach(b=>b.onclick=()=>{currentGroup=b.dataset.group;$$('[data-group]').forEach(el=>el.classList.toggle('active',el===b));updateModel()});
@@ -70,7 +74,7 @@ function renderEvidence(){
  $('#run-label').textContent=report.execution==='ao-worker'?'AO WORKER RESULT':runner?'LOCAL KERNEL RESULT':'RECORDED RUN';
  renderFiles();
 }
-async function loadIteration(n){iteration=n;renderEvidence();try{drawMeshes(await json(`${artifactBase}iteration-${iteration}/mesh.json`))}catch(e){toast('Geometry could not load: '+e.message)}}
+async function loadIteration(n){iteration=n;renderEvidence();setViewStatus('Loading geometry…','loading');try{drawMeshes(await json(`${artifactBase}iteration-${iteration}/mesh.json`))}catch(e){setViewStatus('Geometry could not load — check the connection and refresh.','error');toast('Geometry could not load: '+e.message)}}
 $('#replay-btn').onclick=()=>loadIteration(iteration===1?report.iterations.length:1);
 const files=()=>[
  ['ZIP','rove-1-cad.zip','Complete CAD bundle · source, STEP, printable STL + report',`${artifactBase}rove-1-cad.zip`],
@@ -105,7 +109,7 @@ $('#connect-btn').onclick=connectDialog;
 $('#brief-form').onsubmit=async e=>{e.preventDefault();if(jobBusy)return;if(!runner){$('#brief-feedback').textContent='Connect a local runner to generate your design. The recorded build is ready to inspect and download.';connectDialog();return}const description=$('#brief').value.trim();if(!description){$('#brief-feedback').textContent='Add a short description of your rover.';return}const spec={};for(const name of ['length','width','mast_height']){const input=$('#'+name);if(!input.checkValidity()){input.reportValidity();return}spec[name]=Number(input.value)}jobBusy=true;$('#submit-brief').disabled=true;$('#brief-feedback').textContent=execution==='ao'?'Supervisor dispatching an actual AO worker…':'Building and evaluating real CAD geometry…';const headers={'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})};try{const created=await json(runner+'/api/jobs',{method:'POST',headers,body:JSON.stringify({description,spec,execution})});let job;const deadline=Date.now()+15*60*1000;while(Date.now()<deadline){job=await json(runner+'/api/jobs/'+created.id,{headers});if(job.status==='complete'||job.status==='failed')break;$('#brief-feedback').textContent=job.message||'CAD worker running…';await new Promise(r=>setTimeout(r,2000))}if(job?.status!=='complete')throw Error(job?.error||'Job timed out. It may still be running; inspect the runner.');report=job.report;artifactBase=runner+`/artifacts/jobs/${created.id}/`;$('#brief-text').textContent=description;await loadIteration(report.final_iteration);renderDashboard();$('#brief-feedback').textContent='Build complete. Measured results and downloads updated.';tab('preview');if(pendingDesign){const plist=loadDesigns();const pd=plist.find(x=>x.id===pendingDesign.id);if(pd){pd.revisions.push({n:pd.revisions.length+1,spec:{...spec},evaluated:true,passed:job.report.passed,source_job:created.id,note:'live CAD run',saved_at:nowIso()});pd.description=description;pd.updated_at=nowIso();if(persistDesigns(plist)){toast('Revision '+pd.revisions.length+' saved to "'+pd.name+'".');const m=$('#design-mode');if(m&&!m.hidden)m.querySelector('.design-mode-note').textContent='Attached to a live runner — rebuilds update this design.'}}}}catch(err){$('#brief-feedback').textContent=err.message}finally{jobBusy=false;$('#submit-brief').disabled=false}};
 async function board(){const nets=await json('artifacts/board/nets.json');$('#schematic').innerHTML=`<svg viewBox="0 0 600 310" role="img" aria-label="Four parallel nets from J1 to J2"><g font-family="IBM Plex Mono,monospace" fill="#495d51"><rect x="50" y="50" width="90" height="200" rx="5" fill="#f5f1e5" stroke="#9fae98"/><rect x="460" y="50" width="90" height="200" rx="5" fill="#f5f1e5" stroke="#9fae98"/><text x="77" y="30" font-size="16">J1</text><text x="486" y="30" font-size="16">J2</text>${nets.nets.map((n,i)=>`<path d="M110 ${85+i*45}H490" stroke="${i===0?'#aa6b87':'#388b7f'}" stroke-width="2"/><circle cx="110" cy="${85+i*45}" r="5" fill="#f4efdf" stroke="#388b7f"/><circle cx="490" cy="${85+i*45}" r="5" fill="#f4efdf" stroke="#388b7f"/><text x="285" y="${75+i*45}" font-size="12">${escape(n.name)}</text><text x="78" y="${90+i*45}" font-size="12">${i+1}</text><text x="510" y="${90+i*45}" font-size="12">${i+1}</text>`).join('')}</g></svg>`;$('#board-svg').src='artifacts/board/board.svg';const drc=await json('artifacts/board/drc.json');$('#board-status').textContent=`KiCad ${drc.kicad_version} DRC: ${drc.violations.length} reported violations, ${drc.unconnected_items.length} unconnected items. ${drc.ignored_checks.length} checks ignored by the default rules. No schematic parity or electrical function verification.`}
 try{init3D()}catch(e){$('#viewport').innerHTML='<p style="padding:240px 25px 0">WebGL is unavailable. Measurements and CAD downloads remain available.</p>';console.warn(e.message)}
-try{report=await json(artifactBase+'report.json');reportReadyResolve(report);await loadIteration(report.final_iteration);renderDashboard();await board()}catch(e){reportReadyResolve(null);toast('Build artifacts unavailable: '+e.message);$('#activity').textContent='Could not load recorded evidence. Please refresh or inspect the source repository.'}
+try{report=await json(artifactBase+'report.json');reportReadyResolve(report);await loadIteration(report.final_iteration);renderDashboard();await board()}catch(e){reportReadyResolve(null);setViewStatus('Recorded geometry unavailable on this deployment — check the connection.','error');toast('Build artifacts unavailable: '+e.message);$('#activity').textContent='Could not load recorded evidence. Please refresh or inspect the source repository.'}
 if(['127.0.0.1','localhost'].includes(location.hostname)&&location.port==='8766'){try{await json('/api/health');runner=location.origin;$('#connection-label').textContent='Local runner connected';$('#composer-mode').textContent='LOCAL CAD KERNEL';$('#footer-mode').textContent='LOCAL RUNNER · DETERMINISTIC CAD'}catch{}}
 // ---- My designs: client-side library (localStorage only; no server, no account) ----
 let storageOK=true,pendingDesign=null;
