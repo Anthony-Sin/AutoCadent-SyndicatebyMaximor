@@ -27,6 +27,18 @@ AUTOCADENT_ENABLE_AO=1 uv run uvicorn autocadent.api:app --host 127.0.0.1 --port
 
 Use the connection menu to select **Supervisor → actual AO worker → evaluator**. The API calls `ao spawn`; that worker runs the CAD job and returns its real `AO_SESSION_ID`. The checked-in [AO runtime report](docs/evidence/ao-runtime.json) records a successful dispatch through worker `autocadent-syndicatebymaximor-3`. Jobs are serialized, retained in `.runs/jobs/`, and time out after 15 minutes. Timed-out AO sessions require inspection/termination in the AO dashboard.
 
+### Your designs, saved in the browser
+
+The **Designs** tab is a client-side library — no account, no upload, no server. Everything is stored in the browser's `localStorage` for the current origin; nothing leaves your machine except the export files you download:
+
+- **Import a design bundle** — choose a `.json` design file (the format produced by *Export bundle*). It is validated in-browser and added to the library with its spec and revision history.
+- **Create from the parametric template** — save the current workspace (dimensions + brief) as a named design. Drafts carry no CAD artifacts and are labeled `LOCAL DRAFT` honestly.
+- **Modify and rebuild** — open a design to restore its dimensions and brief, edit them, and submit. With the local runner connected, the live CAD job runs and an evaluated revision (with its job reference) is appended automatically.
+- **Save local revisions** — snapshot the current workspace into any design as a draft revision at any time.
+- **Export bundle** — download the design (name, description, spec, revision history) as `*.autocadent.json`, re-importable or shareable.
+
+Fixed content is limited to exactly one placeholder: the recorded **Rove-1 example** workspace. Everything else is created, imported, or edited in the browser. On GitHub Pages the following genuinely cannot run in-browser: the CAD kernel or an AO worker (they need the local runner), and per-job STEP/STL/PCB downloads without that runner. The UI states this directly ("Saved in this browser only — no server copy", "Live CAD still needs the local runner") instead of faking geometry.
+
 ## What you can build
 
 Rove-1 is an educational rover **assembly/component exemplar**, with a rounded printable chassis, vent slots and M3 holes, a board tray, and a sensor mast. Length 120–180 mm, width 80–110 mm, mast 35–75 mm. Board envelope is fixed at 60 × 40 mm. Wheels, hubs, headers and sensors are assembly envelopes, not validated hardware. There are no modeled motors, axles, fasteners, board retention clips, or working drive system.
