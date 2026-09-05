@@ -68,6 +68,26 @@
     {
       "name": "right camera link",
       "triangles": 2382
+    },
+    {
+      "name": "Quadruped Flight Controller",
+      "triangles": 264
+    },
+    {
+      "name": "Power Distribution Board (PDB)",
+      "triangles": 328
+    },
+    {
+      "name": "Actuator Bus Hub",
+      "triangles": 84
+    },
+    {
+      "name": "LiPo Battery Pack",
+      "triangles": 72
+    },
+    {
+      "name": "Sensor Interface Header",
+      "triangles": 276
     }
   ],
   "format": "binary mesh.bin: float32 xyz verts, uint32 indices"

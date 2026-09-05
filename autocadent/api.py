@@ -14,6 +14,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, ConfigDict
 from .cad import Spec
 from .pipeline import run, save_json
+from .provider import ProviderConfig, ProviderError, Tensormux
+from .model_pipeline import run_model, CompilerError
 
 ROOT=Path(__file__).resolve().parents[1]
 JOBS=ROOT/'.runs/jobs'; JOBS.mkdir(parents=True,exist_ok=True)
@@ -21,6 +23,11 @@ TOKEN=os.getenv('AUTOCADENT_TOKEN','')
 ORIGINS=[s.strip() for s in os.getenv('AUTOCADENT_ORIGINS','').split(',') if s.strip()]
 if ORIGINS and not TOKEN: raise RuntimeError('Cross-origin access requires AUTOCADENT_TOKEN')
 AO_ENABLED=os.getenv('AUTOCADENT_ENABLE_AO')=='1'
+
+def get_provider_config():
+    return ProviderConfig.from_env()
+
+PROVIDER_CONFIG = get_provider_config()
 app=FastAPI(title='AutoCadent local runner',docs_url=None,redoc_url=None)
 app.add_middleware(TrustedHostMiddleware,allowed_hosts=['127.0.0.1','localhost','testserver',*os.getenv('AUTOCADENT_HOSTS','').split(',')])
 app.add_middleware(CORSMiddleware,allow_origins=ORIGINS,allow_methods=['GET','POST'],allow_headers=['Content-Type','Authorization'])
@@ -46,7 +53,22 @@ async def protect(request: Request, call_next):
     return await call_next(request)
 
 @app.get('/api/health')
-def health(): return {'status':'ok','ao_enabled':AO_ENABLED,'execution':['deterministic']+(['ao'] if AO_ENABLED else []),'scope':'bounded-rover'}
+def health():
+    global PROVIDER_CONFIG
+    PROVIDER_CONFIG = get_provider_config()
+    enabled = bool(PROVIDER_CONFIG.api_key)
+    return {
+        'status': 'ok',
+        'ao_enabled': AO_ENABLED,
+        'execution': ['deterministic'] + (['ao'] if AO_ENABLED else []) + (['tensormux'] if enabled else []),
+        'scope': 'bounded-rover',
+        'provider': {
+            'name': 'tensormux',
+            'configured': enabled,
+            'model': PROVIDER_CONFIG.model,
+            'capabilities': ['bounded-rover-spec', 'sensor-bridge-addon', 'custom-signal-breakout', 'measured-model-revision']
+        }
+    }
 
 
 def get_dir(job_id):
@@ -80,20 +102,30 @@ def execute(job_id, req):
                 if (folder/'error.json').exists(): raise RuntimeError(json.loads((folder/'error.json').read_text())['error'])
                 time.sleep(1)
             else: raise RuntimeError('AO job exceeded 15 minutes; inspect/terminate its session in AO before retrying')
+        elif req.execution=='tensormux':
+            PROVIDER_CONFIG = get_provider_config()
+            run_model(Tensormux(PROVIDER_CONFIG),req.description,req.spec,folder)
+            save_json(folder/'complete.json',{'execution':'tensormux'})
         else:
             run(Spec(**req.spec),folder,req.description)
             save_json(folder/'complete.json',{'execution':'deterministic'})
     except Exception as e:
-        save_json(folder/'error.json',{'error':str(e)})
+        save_json(folder/'error.json',{'error':str(e) if req.execution!='tensormux' or isinstance(e,(ProviderError,CompilerError)) else 'Model CAD job failed; inspect local compiler setup',
+                                        **({'provider_status':e.status,'code':e.code} if isinstance(e,ProviderError) else {})})
     finally: LOCK.release()
 
 @app.post('/api/jobs',status_code=202)
 def create_job(req: JobRequest, request: Request):
+    global PROVIDER_CONFIG
     if not request.headers.get('content-type','').startswith('application/json'): raise HTTPException(415,'JSON required')
     try: Spec(**req.spec)
     except (ValueError,TypeError) as e: raise HTTPException(422,str(e))
-    if req.execution not in ['ao','deterministic']: raise HTTPException(422,'Unsupported execution mode')
+    if req.execution not in ['ao','deterministic','tensormux']: raise HTTPException(422,'Unsupported execution mode')
     if req.execution=='ao' and not AO_ENABLED: raise HTTPException(409,'AO dispatch disabled; set AUTOCADENT_ENABLE_AO=1')
+    if req.execution=='tensormux':
+        PROVIDER_CONFIG = get_provider_config()
+        if not PROVIDER_CONFIG.api_key:
+            raise HTTPException(409,'Tensormux disabled; configure the server TENSORMUX_API_KEY')
     if not LOCK.acquire(blocking=False): raise HTTPException(429,'A CAD job is already running')
     job_id=str(uuid.uuid4());folder=JOBS/job_id
     try:
