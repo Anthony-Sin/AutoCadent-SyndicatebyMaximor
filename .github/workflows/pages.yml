@@ -1,7 +1,7 @@
 name: Deploy workspace to Pages
 on:
   push:
-    branches: ["ao/autocadent-syndicatebymaximor-2/track-one"]
+    branches: ["main", "ao/autocadent-syndicatebymaximor-2/track-one"]
   workflow_dispatch:
 permissions:
   contents: read
