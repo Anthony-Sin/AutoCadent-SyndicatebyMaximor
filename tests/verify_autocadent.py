@@ -225,9 +225,13 @@ def verify_criterion_4_orion_parts():
 
 
 def verify_criterion_5_motion_lab():
-    """Criterion 5: Three.js Motion Lab initialization and terrain switching."""
+    """Criterion 5: Three.js Motion Lab initialization and terrain switching.
+    Directly inspects and asserts on web/app.js, web/index.html, and Three.js modules.
+    """
     subchecks = []
     vendor_dir = ROOT / "web" / "vendor"
+    app_js_path = ROOT / "web" / "app.js"
+    index_html_path = ROOT / "web" / "index.html"
 
     # 1. Three.js assets
     three_mod = vendor_dir / "three.module.js"
@@ -235,32 +239,55 @@ def verify_criterion_5_motion_lab():
     subchecks.append(("Three.js module available", three_mod.is_file() and "WebGLRenderer" in three_mod.read_text()))
     subchecks.append(("OrbitControls available", orbit_mod.is_file() and "OrbitControls" in orbit_mod.read_text()))
 
-    # 2. Terrains definitions (Martian, Lunar, Proving Ground)
-    terrains = {
-        "martian": {"color": 0xb85233, "fog": True},
-        "lunar": {"color": 0x8a8d91, "fog": False},
-        "proving_ground": {"color": 0xeeebe2, "fog": False},
-    }
-    subchecks.append(("At least 3 realistic terrain profiles", len(terrains) >= 3))
-    subchecks.append(("Martian regolith ochre palette", terrains["martian"]["color"] == 0xb85233))
-    subchecks.append(("Lunar monochrome palette", terrains["lunar"]["color"] == 0x8a8d91))
-    subchecks.append(("Proving ground engineering floor", terrains["proving_ground"]["color"] == 0xeeebe2))
+    # 2. Inspect web/app.js directly for switchable terrains (SIM_TERRAINS)
+    if not app_js_path.is_file():
+        subchecks.append(("web/app.js present on disk", False))
+        return False, "web/app.js missing"
+    app_js = app_js_path.read_text()
 
-    # 3. Locomotion kinematics models
-    # Trotting gait antiphase validation
-    phases = [0.0, math.pi, math.pi, 0.0]
-    antiphase_ok = math.isclose(abs(phases[0] - phases[1]), math.pi, abs_tol=1e-5)
-    subchecks.append(("Quadruped trotting gait phase coordination", antiphase_ok))
+    terrain_match = re.search(r"const SIM_TERRAINS = ({[\s\S]*?\n});", app_js)
+    subchecks.append(("SIM_TERRAINS defined in web/app.js", terrain_match is not None))
 
-    # Rolling wheel kinematics
-    wheel_radius = 30.0  # mm
-    linear_vel = 120.0  # mm/s
-    omega = linear_vel / wheel_radius  # 4 rad/s
-    subchecks.append(("Wheeled rolling kinematics", omega == 4.0))
+    # Verify terrains: martian (ochre 0xb85233), lunar (gray 0x8a8d91), proving_ground (cream 0xeeebe2)
+    has_martian = bool(re.search(r"martian:\s*{[^}]*base_color:\s*0xb85233[^}]*has_fog:\s*true", app_js))
+    has_lunar = bool(re.search(r"lunar:\s*{[^}]*base_color:\s*0x8a8d91[^}]*has_fog:\s*false", app_js))
+    has_proving = bool(re.search(r"proving_ground:\s*{[^}]*base_color:\s*0xeeebe2", app_js))
+    subchecks.append(("Martian regolith ochre palette (0xb85233) & fog in app.js", has_martian))
+    subchecks.append(("Lunar monochrome palette (0x8a8d91) & no-fog in app.js", has_lunar))
+    subchecks.append(("Proving ground engineering floor (0xeeebe2) in app.js", has_proving))
+
+    # 3. Verify procedural elevation & geometry functions exist in web/app.js
+    has_martian_elev = "function martianElevation(" in app_js
+    has_lunar_elev = "function lunarElevation(" in app_js and "function craterElevation(" in app_js
+    has_terrain_builder = "function buildTerrain(" in app_js
+    has_sim_init = "function initSim3D(" in app_js and "function simTick(" in app_js
+    subchecks.append(("Procedural Martian & Lunar elevation functions in app.js", has_martian_elev and has_lunar_elev))
+    subchecks.append(("Terrain builder & 3D WebGL loop in app.js", has_terrain_builder and has_sim_init))
+
+    # 4. Locomotion kinematics models in web/app.js
+    # Quadruped trotting gait antiphase validation
+    trot_ok = bool(re.search(r"name:\s*['\"]FL['\"][\s\S]*?phase:\s*0\.0[\s\S]*?name:\s*['\"]FR['\"][\s\S]*?phase:\s*Math\.PI[\s\S]*?name:\s*['\"]BL['\"][\s\S]*?phase:\s*Math\.PI[\s\S]*?name:\s*['\"]BR['\"][\s\S]*?phase:\s*0\.0", app_js))
+    subchecks.append(("Quadruped trotting gait phase coordination in app.js", trot_ok))
+
+    # Rolling wheel kinematics in web/app.js
+    wheel_ok = bool(re.search(r"wheelRadius\s*=\s*30\.0", app_js) and re.search(r"linearVel\s*=\s*150\.0", app_js) and re.search(r"omega\s*=\s*linearVel\s*/\s*wheelRadius", app_js))
+    subchecks.append(("Wheeled rolling kinematics (omega = v / R) in app.js", wheel_ok))
+
+    # 5. DOM viewport and terrain selection in web/index.html
+    if not index_html_path.is_file():
+        subchecks.append(("web/index.html present on disk", False))
+        return False, "web/index.html missing"
+    index_html = index_html_path.read_text()
+    has_sim_viewport = 'id="sim-viewport"' in index_html
+    has_terrain_buttons = ('data-terrain="martian"' in index_html and
+                           'data-terrain="lunar"' in index_html and
+                           'data-terrain="proving_ground"' in index_html)
+    subchecks.append(("#sim-viewport and terrain selectors in index.html", has_sim_viewport and has_terrain_buttons))
 
     passed = all(ok for _, ok in subchecks)
-    details = f"{sum(1 for _, ok in subchecks)}/{len(subchecks)} checks passed (Three.js WebGL, 3 terrains, kinematics)"
+    details = f"{sum(1 for _, ok in subchecks)}/{len(subchecks)} checks passed (Three.js WebGL, 3 terrains, kinematics, DOM)"
     return passed, details
+
 
 
 def main():

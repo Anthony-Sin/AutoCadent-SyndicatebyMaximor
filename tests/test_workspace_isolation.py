@@ -4,6 +4,7 @@ Derived from ORIGINAL_REQUEST.md § R1 and TEST_INFRA.md (Tiers 1-4).
 import json
 import os
 import re
+import subprocess
 import urllib.request
 import urllib.error
 import xml.etree.ElementTree as ET
@@ -218,11 +219,29 @@ class TestProjectWorkspaceIsolation:
 # Tier 3 & Tier 4: Cross-Project Interaction & State Isolation Workflows
 # ===========================================================================
 
+def run_node_eval(script: str) -> str:
+    """Executes a Node.js snippet in ROOT directory and returns trimmed stdout."""
+    result = subprocess.run(
+        ["node", "-e", script],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"Node execution failed (code {result.returncode}):\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+        )
+    return result.stdout.strip()
+
+
 class TestProjectSwitchingWorkflows:
-    """Simulates multi-project workflows ensuring zero cross-contamination."""
+    """Simulates multi-project workflows directly evaluating getRove1Project, getOrionProject,
+    and getCustomProject from web/app.js to ensure zero cross-contamination.
+    """
 
     def test_project_workspace_contract_structure(self):
-        """Validates contract interface defined in PROJECT.md:
+        """Validates contract interface defined in PROJECT.md by directly invoking
+        getRove1Project() and getOrionProject() from web/app.js via Node.js:
         interface ProjectWorkspace {
           id: string;
           name: string;
@@ -235,62 +254,192 @@ class TestProjectSwitchingWorkflows:
           spec: Record<string, number | string>;
         }
         """
-        # Validate that Rove-1 artifacts match the contract
-        rove_files = [
-            {"name": "board-tray.stl", "type": "STL Mesh"},
-            {"name": "chassis.stl", "type": "STL Mesh"},
-            {"name": "sensor-mast.stl", "type": "STL Mesh"},
-            {"name": "rove-1.step", "type": "STEP Model"},
-            {"name": "rove-1-board.zip", "type": "KiCad Archive"},
-        ]
-        assert len(rove_files) == 5
+        script = """
+        const fs = require('fs');
+        const code = fs.readFileSync('web/app.js', 'utf8');
 
-        # Validate Orion files match the contract
-        orion_files = [
-            {"name": "manifest.json", "type": "Assembly Manifest"},
-            {"name": "mesh.json", "type": "Part Geometry Metadata"},
-            {"name": "mesh.bin", "type": "Binary Mesh Buffer"},
-        ]
-        assert len(orion_files) == 3
+        const context = {
+          report: null,
+          boardMeta: null,
+          artifactBase: 'artifacts/demo/',
+          iteration: 1,
+          runner: '',
+          extOf: (n) => (n.split('.').pop() || '').toUpperCase(),
+          slug: (s) => s.toLowerCase().replace(/\\s+/g, '-'),
+          designBundle: (d) => ({ design: d }),
+          escape: (s) => s
+        };
 
-        # Confirm zero filename overlap between Rove-1 and Orion files
-        rove_names = {f["name"] for f in rove_files}
-        orion_names = {f["name"] for f in orion_files}
-        assert rove_names.isdisjoint(orion_names), "Overlap detected between Rove-1 and Orion files!"
+        const getOrionMatch = code.match(/function getOrionProject\\(\\)\\{[\\s\\S]*?\\n\\}/);
+        const getRove1Match = code.match(/function getRove1Project\\(\\)\\{[\\s\\S]*?\\n\\}/);
+        if (!getOrionMatch || !getRove1Match) throw new Error('Project factory functions missing in web/app.js');
+
+        const fn = new Function(...Object.keys(context), getOrionMatch[0] + '\\n' + getRove1Match[0] + '\\nreturn { getOrionProject, getRove1Project };');
+        const { getOrionProject, getRove1Project } = fn(...Object.values(context));
+
+        console.log(JSON.stringify({
+          rove: getRove1Project(),
+          orion: getOrionProject()
+        }));
+        """
+        data = json.loads(run_node_eval(script))
+        rove = data["rove"]
+        orion = data["orion"]
+
+        # Validate Rove-1 Workspace Contract
+        assert rove["id"] == "rove1"
+        assert rove["name"] == "Rove-1"
+        assert rove["badge"] == "Parametric CAD"
+        assert rove["type"] == "rover"
+        assert len(rove["files"]) >= 5
+        assert len(rove["schematic"]["nets"]) == 4
+        assert rove["layout"]["boardSvgPath"] == "artifacts/board/board.svg"
+        assert rove["layout"]["bundleUrl"] == "artifacts/board/rove-1-board.zip"
+
+        # Validate Orion Workspace Contract (full 7 files per getOrionProject)
+        assert orion["id"] == "orion"
+        assert orion["name"] == "Orion"
+        assert orion["badge"] == "Quadruped"
+        assert orion["type"] == "quadruped"
+        assert len(orion["files"]) == 7
+        orion_names = {f["name"] for f in orion["files"]}
+        expected_orion_files = {
+            "orion.urdf",
+            "manifest.json",
+            "mesh.json",
+            "mesh.bin",
+            "orion-board.zip",
+            "actuator-bus.kicad_pcb",
+            "bom.csv",
+        }
+        assert orion_names == expected_orion_files
+        assert len(orion["schematic"]["nets"]) == 12
+        assert orion["layout"]["boardSvgPath"] == "artifacts/orion/board.svg"
+        assert orion["layout"]["bundleUrl"] == "artifacts/orion/orion-board.zip"
+        assert orion["spec"]["joints"] == 12
+
+        # Confirm zero overlap between project-specific geometry and board assets
+        rove_specific = {"board-tray.stl", "chassis.stl", "sensor-mast.stl", "rove-1.step", "rove-1-board.zip", "cad.py", "generate.py"}
+        orion_specific = {"orion.urdf", "manifest.json", "mesh.bin", "orion-board.zip", "actuator-bus.kicad_pcb", "bom.csv"}
+        assert rove_specific.isdisjoint(orion_specific)
+
+        # Confirm download URLs are strictly isolated
+        rove_urls = {f["downloadUrl"] for f in rove["files"]}
+        orion_urls = {f["downloadUrl"] for f in orion["files"]}
+        assert all("artifacts/orion/" in u for u in orion_urls)
+        assert rove_urls.isdisjoint(orion_urls)
+
+        # Confirm schematic net names are strictly isolated
+        rove_nets = {n["name"] for n in rove["schematic"]["nets"]}
+        orion_nets = {n["name"] for n in orion["schematic"]["nets"]}
+        assert rove_nets.isdisjoint(orion_nets)
 
     def test_custom_design_isolation_lifecycle(self, tmp_path):
-        """Simulates creating custom design, switching to Orion, then Rove-1, verifying clean state."""
-        # Simulated localStorage store
-        store = {
-            "designs": [
-                {
-                    "id": "design-custom-alpha",
-                    "name": "Heavy Duty Rover",
-                    "description": "High payload chassis with dual sensor bridge",
-                    "spec": {"length": 170.0, "width": 105.0, "mast_height": 65.0},
-                    "files": [{"name": "heavy-chassis.stl", "size": "450 KB"}],
-                }
-            ]
-        }
+        """Directly executes getActiveProject() and getCustomProject(d) from web/app.js
+        simulating project transitions: Rove-1 -> Orion -> Custom Design -> Rove-1.
+        """
+        script = """
+        const fs = require('fs');
+        const code = fs.readFileSync('web/app.js', 'utf8');
 
-        # Active project tracking
-        active_project = "rove1"
-        assert active_project == "rove1"
+        const getOrionMatch = code.match(/function getOrionProject\\(\\)\\{[\\s\\S]*?\\n\\}/);
+        const getRove1Match = code.match(/function getRove1Project\\(\\)\\{[\\s\\S]*?\\n\\}/);
+        const getCustomMatch = code.match(/function getCustomProject\\(d\\)\\{[\\s\\S]*?\\n\\}/);
+        const getActiveMatch = code.match(/function getActiveProject\\(\\)\\{[\\s\\S]*?\\n\\}/);
+        const slugMatch = code.match(/function slug\\([^\\)]*\\)\\{[^\\}]*\\}/);
+        const designBundleMatch = code.match(/function designBundle\\([^\\)]*\\)\\{[\\s\\S]*?\\n\\}/);
+        const extOfMatch = code.match(/const extOf=n=>[^;]+;/);
 
-        # Switch to Orion
-        active_project = "orion"
-        assert active_project == "orion"
-        active_files = [f["name"] for f in [
-            {"name": "manifest.json"}, {"name": "mesh.json"}, {"name": "mesh.bin"}
-        ]]
-        assert "heavy-chassis.stl" not in active_files
-        assert "rove-1.step" not in active_files
+        const fn = new Function(
+          'let report = null, boardMeta = null, iteration = 1, artifactBase = \"artifacts/demo/\", runner = \"\";' +
+          'const escape = (s) => s;' +
+          'let designsList = [];' +
+          'const loadDesigns = () => designsList;' +
+          'let pendingDesign = null;' +
+          'let activeProjectId = \"rove1\";' +
+          extOfMatch[0] + '\\n' +
+          slugMatch[0] + '\\n' +
+          designBundleMatch[0] + '\\n' +
+          getOrionMatch[0] + '\\n' +
+          getRove1Match[0] + '\\n' +
+          getCustomMatch[0] + '\\n' +
+          getActiveMatch[0] + '\\n' +
+          'return function(activeId, designs) {' +
+          '  activeProjectId = activeId;' +
+          '  designsList = designs;' +
+          '  return getActiveProject();' +
+          '};'
+        );
 
-        # Switch to custom
-        active_project = "design-custom-alpha"
-        active_files = [f["name"] for f in store["designs"][0]["files"]]
-        assert active_files == ["heavy-chassis.stl"]
+        const runner = fn();
 
-        # Switch back to rove1
-        active_project = "rove1"
-        assert active_project == "rove1"
+        // 1. Initial active: Rove-1
+        const p1 = runner('rove1', []);
+
+        // 2. Switch to Orion
+        const p2 = runner('orion', []);
+
+        // 3. User creates a custom design and switches to it
+        const customDef = {
+          id: 'design-custom-alpha',
+          name: 'Heavy Duty Rover',
+          description: 'High payload chassis with dual sensor bridge',
+          kind: 'template',
+          revisions: [{
+            n: 1,
+            spec: { length: 170.0, width: 105.0, mast_height: 65.0 },
+            passed: true,
+            evaluated: false
+          }]
+        };
+        const p3 = runner('design-custom-alpha', [customDef]);
+
+        // 4. Switch back to Rove-1
+        const p4 = runner('rove1', [customDef]);
+
+        console.log(JSON.stringify({ p1, p2, p3, p4 }));
+        """
+        data = json.loads(run_node_eval(script))
+        p1 = data["p1"]
+        p2 = data["p2"]
+        p3 = data["p3"]
+        p4 = data["p4"]
+
+        # 1. Rove-1 initial state
+        assert p1["id"] == "rove1"
+        assert p1["type"] == "rover"
+        p1_files = {f["name"] for f in p1["files"]}
+        assert "chassis.stl" in p1_files
+        assert "orion.urdf" not in p1_files
+
+        # 2. Orion state
+        assert p2["id"] == "orion"
+        assert p2["type"] == "quadruped"
+        p2_files = {f["name"] for f in p2["files"]}
+        assert "orion.urdf" in p2_files
+        assert "chassis.stl" not in p2_files
+        assert "heavy-duty-rover.autocadent.json" not in p2_files
+        assert len(p2["schematic"]["nets"]) == 12
+
+        # 3. Custom design state
+        assert p3["id"] == "design-custom-alpha"
+        assert p3["type"] == "custom"
+        assert p3["name"] == "Heavy Duty Rover"
+        assert p3["dimensions"]["length"] == 170.0
+        assert p3["dimensions"]["width"] == 105.0
+        assert p3["dimensions"]["mast_height"] == 65.0
+        p3_files = {f["name"] for f in p3["files"]}
+        assert "heavy-duty-rover.autocadent.json" in p3_files
+        assert "orion.urdf" not in p3_files
+        assert "rove-1.step" not in p3_files
+        assert "Heavy Duty Rover" in p3["schematic"]["title"]
+
+        # 4. Return to Rove-1
+        assert p4["id"] == "rove1"
+        assert p4["type"] == "rover"
+        p4_files = {f["name"] for f in p4["files"]}
+        assert "chassis.stl" in p4_files
+        assert "heavy-duty-rover.autocadent.json" not in p4_files
+        assert "orion.urdf" not in p4_files
+        assert p4["dimensions"]["length"] == 140
+
