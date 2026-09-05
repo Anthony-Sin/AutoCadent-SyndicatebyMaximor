@@ -50,6 +50,8 @@ uv run python scripts/mcp_probe.py kicad --call get_version
 
 ## Verification in this session (2026-09-05)
 
+Re-run after PR #1 was merged, against `main` at `c7172e2`; results match the earlier run on the feature branch.
+
 | Command | Result |
 |---|---|
 | `uv sync --locked --python 3.12` | passed |
@@ -60,7 +62,13 @@ uv run python scripts/mcp_probe.py kicad --call get_version
 | `/usr/bin/python3 scripts/board.py` | DRC clean (KiCad 10.0.5) |
 | `node --check web/app.js` | passed |
 
-Both GitHub Actions workflows (`Verify engineering workflow`, `Deploy workspace to Pages`) succeed on `ao/autocadent-syndicatebymaximor-2/track-one`. The deployed workspace is live at <https://anthony-sin.github.io/AutoCadent-SyndicatebyMaximor/> (index, `app.js`, `artifacts/benchmark.json`, CAD STEP and board SVG all served). The PR for the feature branch remains unmerged per the hosting rule.
+Both GitHub Actions workflows (`Verify engineering workflow`, `Deploy workspace to Pages`) succeed on `ao/autocadent-syndicatebymaximor-2/track-one`. The deployed workspace is live at <https://anthony-sin.github.io/AutoCadent-SyndicatebyMaximor/> (index, `app.js`, `artifacts/benchmark.json`, CAD STEP and board SVG all served) and serves the merged workspace; the original plan to keep the branch unmerged was superseded by the merge recorded below.
+
+## PR #1 approval and merge (2026-09-05)
+
+PR #1 (<https://github.com/Anthony-Sin/AutoCadent-SyndicatebyMaximor/pull/1>, feature branch `ao/autocadent-syndicatebymaximor-2/track-one`) was approved and merged into `main` by `Anthony-Sin` on 2026-09-05 as merge commit `c7172e2` (merged 18:09 UTC). This supersedes the earlier plan (see `docs/PLAN.md`) to deploy through GitHub Pages without merging.
+
+The live site serves the merged workspace. The `Deploy workspace to Pages` workflow deploys on pushes to the feature branch, so the deployment is built from the feature-head commit `7627023`; `web/` on `main` at `c7172e2` is byte-identical to that deployment (SHA-256 match for `index.html`, `app.js`, `artifacts/benchmark.json`, `artifacts/demo/final/rove-1.step` and `artifacts/board/board.svg`), and all of those paths return HTTP 200.
 
 ## Remaining submission tasks
 
