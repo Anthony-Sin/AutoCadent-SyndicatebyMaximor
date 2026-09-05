@@ -38,5 +38,13 @@
 .design-dialog{display:flex;flex-direction:column;gap:10px}.design-dialog input[type=text]{width:100%;padding:9px;border:1px solid var(--line);border-radius:5px;background:#fff}.design-dialog .muted{color:var(--muted);font-size:11px}.text-button.danger{color:#a03232}
 .back-link{font:11px var(--mono);color:var(--teal);padding:8px 10px;border:1px solid var(--line);border-radius:5px;background:#fcfbf7}
 .dashboard-view.landing{max-width:1060px;margin:0 auto}
+body.is-landing .workspace{display:block}
+body.is-landing .agent-panel,body.is-landing .properties-panel,body.is-landing .workspace-bar{display:none}
+body.is-landing .design-panel{max-width:1120px;margin:0 auto}
+.rev-row{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;font-size:10px;padding:9px 0;border-bottom:1px dashed var(--line)}
+.rev-row:last-of-type{border-bottom:0}
+.rev-row .mono{font-size:10px}
+.rev-row small{display:block;font-size:9px;color:var(--muted);margin-top:3px}
+.rev-row em{font:8px var(--mono);font-style:normal;color:var(--teal)}
+.rev-row.fail em{color:var(--pink)}
 .landing-cta{display:flex;gap:12px;margin:22px 0 8px;flex-wrap:wrap}
-.design-panel.landing-mode .canvas-wrap,.design-panel.landing-mode .alternate-view:not(.landing){display:none!important}
