@@ -4,6 +4,7 @@ const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let report, iteration=1, artifactBase='artifacts/demo/', currentGroup='all', translucent=true, exploded=false, runner='', token='', execution='deterministic', jobBusy=false;
 let scene, camera, renderer, controls, assembly, renderRunning=false;
+const DESIGNS_KEY='autocadent.designs', DEMO_SPEC={length:0,width:0,mast_height:0};
 let pendingMeshes=null;
 function setViewStatus(msg,mode){const el=document.getElementById('view-status');if(!el)return;el.textContent=msg||'';el.hidden=!msg;el.dataset.mode=mode||'info';window.__viewStatus=msg||''}
 function tick(){if(!renderer)return;controls.update();renderer.render(scene,camera);updateScale()}
@@ -94,7 +95,6 @@ function renderDashboard(){
     <article class="dash-card"><span class="eyebrow">REPAIR BENCHMARK</span><div class="bench-big" id="bench-figure">…</div><p class="muted" id="bench-note">Loading regression corpus…</p></article>
   </div>
   <div class="dash-links">${nav('preview','Assembly explorer','orbit · isolate · explode')}${nav('files','Build outputs','STEP · STL · ZIP · source + hashes')}${nav('schematic','Connectivity diagram','four nets · J1 ↔ J2')}${nav('layout','Board layout','KiCad export · DRC evidence')}</div>`;
-  $$('[data-goto]').forEach(b=>b.onclick=()=>tab(b.dataset.goto));
   json('artifacts/benchmark.json').then(b=>{$('#bench-figure').innerHTML=`<b>${b.after_pass_count}</b>/${b.case_count}<span>pass after repair</span>`;$('#bench-note').textContent=`${b.before_pass_count} of ${b.case_count} initially accepted; deterministic repair recovers ${b.after_pass_count-b.before_pass_count}. Fixed regression corpus, not an LLM benchmark.`}).catch(()=>{$('#bench-figure').textContent='—';$('#bench-note').textContent='Benchmark artifact unavailable.'});
 };$('#export-btn').onclick=()=>modal('Take the build with you.',`<p>Final evaluated CAD plus a fixed connector-board exemplar. Sensor and wheel envelopes are included in STEP for assembly context, not as printable hardware.</p>${fileRows()}`);
 $('#report-btn').onclick=()=>{const ev=report.iterations[iteration-1].evaluation;modal(`Revision ${iteration}: the evidence.`,`<p>Measured by OpenCASCADE. Solid validity is separate from dimensional acceptance. These checks do not certify strength, electrical safety, or printability.</p><table><thead><tr><th>Check</th><th>Measured</th><th>Requirement</th><th>Result</th></tr></thead><tbody>${ev.checks.map(c=>`<tr><td title="${escape(c.method)}">${c.name}</td><td>${c.measured} ${c.unit}</td><td>${escape(c.requirement)}</td><td>${c.passed?'PASS':'FAIL'}</td></tr>`).join('')}</tbody></table><p>Tray wall: paired planar side-face offsets. Board gap: minimum solid distance to tray sidewalls. No global wall analysis or structural simulation.</p><a class="download-link" href="${artifactBase}report.json" download>Download complete report ↗</a>`)};
@@ -110,7 +110,6 @@ try{report=await json(artifactBase+'report.json');reportReadyResolve(report);syn
 if(['127.0.0.1','localhost'].includes(location.hostname)&&location.port==='8766'){try{await json('/api/health');runner=location.origin;$('#connection-label').textContent='Local runner connected';$('#composer-mode').textContent='LOCAL CAD KERNEL';$('#footer-mode').textContent='LOCAL RUNNER · DETERMINISTIC CAD'}catch{}}
 // ---- My designs: client-side library (localStorage only; no server, no account) ----
 let storageOK=true,pendingDesign=null;
-const DESIGNS_KEY='autocadent.designs',DEMO_SPEC={length:0,width:0,mast_height:0};
 function nowIso(){return new Date().toISOString()}
 function loadDesigns(){try{const raw=localStorage.getItem(DESIGNS_KEY);return raw?JSON.parse(raw):[]}catch{storageOK=false;return[]}}
 function persistDesigns(list){try{localStorage.setItem(DESIGNS_KEY,JSON.stringify(list));storageOK=true;return true}catch{storageOK=false;return false}}
