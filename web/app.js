@@ -78,6 +78,7 @@ function drawMeshes(parts){
  if(assembly){scene.remove(assembly);disposeAssembly(assembly)}
  assembly=next;scene.add(assembly);selectedNames.clear();isolatedNames.clear();currentGroup='all';layerFilter='all';partQuery='';$('#part-search').value='';$('#part-layer').value='all';
  assembly.userData.center=new THREE.Box3().setFromObject(assembly).getCenter(new THREE.Vector3());
+ assembly.userData.bbox=new THREE.Box3().setFromObject(assembly).getSize(new THREE.Vector3());
  hoverTip(null);updateModel();fitAssembly();renderAssemblyPanel();renderTimeline();setViewStatus('');
 }
 function mentionSelection(){
@@ -114,7 +115,7 @@ function updateModel(){
   mesh.visible=(!isolatedNames.size||isolatedNames.has(mesh.userData.name))&&(layerFilter==='all'||mesh.userData.group===layerFilter);
   mesh.material.opacity=translucent?.48:1;mesh.material.transparent=translucent;mesh.material.depthWrite=!translucent;
   mesh.position.set(0,0,0);mesh.rotation.set(0,0,0);
-  if(explosion){mesh.geometry.computeBoundingBox();const c=mesh.geometry.boundingBox.getCenter(new THREE.Vector3()).sub(center);if(c.length()<1)c.set(0,0,1);mesh.position.copy(c.normalize().multiplyScalar(explosion*(model==='orion'?180:75)));}
+  if(explosion){mesh.geometry.computeBoundingBox();const c=mesh.geometry.boundingBox.getCenter(new THREE.Vector3()).sub(center);const scale=explosion*(model==='orion'?200:90);const bboxZ=assembly.userData.bbox?.z||150;const zOff=c.z*(scale/Math.max(1,bboxZ));const xy=new THREE.Vector3(c.x,c.y,0);if(xy.length()>1)xy.normalize().multiplyScalar(scale*0.12);mesh.position.set(xy.x,xy.y,zOff);}
  });
 }
 $$('[data-group]').forEach(b=>b.onclick=()=>{currentGroup=b.dataset.group;$$('[data-group]').forEach(el=>el.classList.toggle('active',el===b));updateModel()});
@@ -338,6 +339,7 @@ function renderLayout(proj){
  if(boardSvg){
   boardSvg.src=lay.boardSvgPath;
   boardSvg.alt=`Actual KiCad export of the ${p.name} board`;
+  boardSvg.hidden=false;
  }
  const boardStatus=$('#board-status');
  if(boardStatus)boardStatus.textContent=lay.statusText;
@@ -1115,6 +1117,9 @@ async function setActiveProject(projectId){
  activeProjectId=projectId;
  model=projectId==='orion'?'orion':'rove1';
  syncModelButtons();
+ // Show simulation tab only for Orion quadruped project
+ const simTab=document.querySelector('[data-tab="simulation"]');
+ if(simTab)simTab.hidden=(projectId!=='orion');
 
  const proj=getActiveProject();
 
@@ -1310,12 +1315,11 @@ function renderDashboard(){
  }).join('');
 
  $('#dashboard').innerHTML=`<div class="dashboard-heading"><div><span class="eyebrow">AUTOCADENT / YOUR WORKSPACE</span><h1>Ideas, taking shape.</h1><p>Build a robot. Explore every part. See what moves.</p></div><button class="dark-button" data-action="new-project">＋ New design</button></div>
- <div class="section-title"><h2>On your workbench</h2><span>${String(totalAssemblies).padStart(2,'0')} assemblies · 01 motion lab</span></div>
+ <div class="section-title"><h2>On your workbench</h2><span>${String(totalAssemblies).padStart(2,'0')} assemblies</span></div>
  <div class="project-gallery">
  <article class="project-tile"><button class="project-visual rover-art" data-open-model="rove1" aria-label="Explore Rove–1">${robotArt('rove1')}<span class="visual-tag">REV ${String(report?.final_iteration||iteration||1).padStart(2,'0')} · ${report?.passed?'CHECKED':'REVIEW'}</span><span class="visual-arrow">↗</span></button><div class="tile-title"><h2>Rove–1</h2><span class="project-badge">Parametric CAD</span></div><p>A compact rover, from first build to measured repair.</p><button class="text-button" data-open-model="rove1">Open assembly ↗</button></article>
  <article class="project-tile"><button class="project-visual orion-art" data-open-model="orion" aria-label="Explore Orion">${robotArt('orion')}<span class="visual-tag">16 PARTS · REFERENCE</span><span class="visual-arrow">↗</span></button><div class="tile-title"><h2>Orion</h2><span class="project-badge">Quadruped</span></div><p>A 12-joint robot dog. Inspect the full-resolution assembly.</p><button class="text-button" data-open-model="orion">Open assembly ↗</button></article>
  ${customCards}
- <article class="project-tile"><button class="project-visual duck-art" data-goto="simulation" aria-label="Open Motion Lab simulation">${robotArt('microduck')}<span class="motion-orbit"></span><span class="visual-tag">THREE.JS · KINEMATICS</span><span class="visual-arrow">↗</span></button><div class="tile-title"><h2>Motion Lab</h2><span class="project-badge">Simulation</span></div><p>Native Three.js locomotion & switchable planetary terrains.</p><button class="text-button" data-goto="simulation">Open motion lab ↗</button></article>
  </div>
  <div class="section-title"><h2>Latest build</h2><button class="text-button" data-evidence="report">View evidence ↗</button></div>
  <div class="build-overview"><div><span class="eyebrow">ROVE–1 / REV ${report?.final_iteration||iteration||1}</span><h3>${report?.passed?'Ready to explore':'Needs a repair'}</h3><p>${checks.filter(c=>c.passed).length} / ${checks.length} checks · ${report?.iterations?.length||1} revisions</p></div>${checks.filter(c=>['Chassis thickness','Tray wall','Board clearance'].includes(c.name)).map(c=>`<div><span>${escape(c.name)}</span><strong>${c.measured.toFixed(1)} <small>mm</small></strong><em>${c.passed?'✓ Pass':'! Fail'}</em></div>`).join('')}</div>
@@ -1430,7 +1434,7 @@ function importDesigns(text,fileName){
  const revisions=Array.isArray(b.revisions)&&b.revisions.length?b.revisions.map(norm):[{n:1,spec:{...spec},evaluated:!!(b.evaluated??b.passed!==undefined),passed:!!b.passed,source_job:null,note:'imported bundle',saved_at:nowIso()}];
  return{id:slug((b.name||fileName||'imported')+'-'+Math.random().toString(36).slice(2,7)),name:String(b.name||fileName.replace(/\.autocadent\.json$|\.json$/i,'')||'Imported design').slice(0,40),description:String(b.description||'').slice(0,1500),spec:{...spec},kind:'imported',source:'file',created_at:b.created_at||nowIso(),updated_at:nowIso(),revisions};
 }
-function createFromTemplate(){modal('Save your design locally.',`<div class="design-dialog"><label for="design-name">Design name</label><input id="design-name" type="text" maxlength="40" value="Rove-1 variation" autocomplete="off"><p class="muted">Stored in this browser only (localStorage). No account, no upload. Live CAD still needs the local runner; a draft saves without artifacts until you run it.</p><button id="do-save-design" class="dark-button">Save design ↗</button></div>`);$('#do-save-design').onclick=()=>{const n=$('#design-name').value.trim();if(!n){$('#design-name').focus();return}const spec=currentSpec();if(!inTemplateRange(spec)){toast('Dimensions must stay inside the template ranges.');$('#modal').close();return}$('#modal').close();const d={id:'t-'+Math.random().toString(36).slice(2,9),name:n.slice(0,40),description:$('#brief').value.trim(),spec:{...spec},kind:'template',source:'template',created_at:nowIso(),updated_at:nowIso(),revisions:[{n:1,spec:{...spec},evaluated:false,passed:false,source_job:null,note:'created from parametric template',saved_at:nowIso()}]};const list=loadDesigns();list.unshift(d);if(persistDesigns(list)){renderDesigns();openDesign(d.id);toast('New design "'+d.name+'" saved locally.')}else toast('Could not save — browser storage unavailable.')};$('#design-name').focus()}
+function createFromTemplate(){modal('Save your design locally.',`<div class="design-dialog"><label for="design-name">Design name</label><input id="design-name" type="text" maxlength="40" value="" placeholder="My robot design" autocomplete="off"><p class="muted">Stored in this browser only (localStorage). No account, no upload. Live CAD still needs the local runner; a draft saves without artifacts until you run it.</p><button id="do-save-design" class="dark-button">Save design ↗</button></div>`);$('#do-save-design').onclick=()=>{const n=$('#design-name').value.trim();if(!n){$('#design-name').focus();return}const spec=currentSpec();if(!inTemplateRange(spec)){toast('Dimensions must stay inside the template ranges.');$('#modal').close();return}$('#modal').close();const d={id:'t-'+Math.random().toString(36).slice(2,9),name:n.slice(0,40),description:$('#brief').value.trim(),spec:{...spec},kind:'template',source:'template',created_at:nowIso(),updated_at:nowIso(),revisions:[{n:1,spec:{...spec},evaluated:false,passed:false,source_job:null,note:'created from parametric template',saved_at:nowIso()}]};const list=loadDesigns();list.unshift(d);if(persistDesigns(list)){renderDesigns();openDesign(d.id);toast('New design "'+d.name+'" saved locally.')}else toast('Could not save — browser storage unavailable.')};$('#design-name').focus()}
 $('#designs').addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b)return;const id=b.dataset.design,act=b.dataset.act;if(act==='open')openDesign(id);else if(act==='export')exportDesign(id);else if(act==='rev')saveRevision(id);else if(act==='delete')deleteClick(id,b)});
 $('#design-import').onchange=e=>{const f=e.target.files[0];if(!f)return;const reader=new FileReader();reader.onload=()=>{try{const d=importDesigns(reader.result,f.name);const list=loadDesigns();list.unshift(d);if(persistDesigns(list)){renderDesigns();openDesign(d.id);toast('Imported "'+d.name+'" ('+d.revisions.length+' revision'+(d.revisions.length>1?'s':'')+').')}else toast('Import failed — browser storage unavailable.')}catch(err){toast('Import rejected: '+err.message)}};reader.readAsText(f);e.target.value=''};
 $('#design-new').onclick=createFromTemplate;
