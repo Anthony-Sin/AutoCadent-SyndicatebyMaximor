@@ -1,0 +1,492 @@
+{
+  "kind": "Fixed deterministic regression corpus; no LLM success-rate claim",
+  "cases": [
+    {
+      "case": "thin-and-tight",
+      "input": {
+        "length": 140,
+        "width": 90,
+        "thickness": 1.2,
+        "wall": 1.2,
+        "clearance": 0.1,
+        "mast_height": 52
+      },
+      "before": {
+        "passed": false,
+        "checks": [
+          {
+            "name": "Solid validity",
+            "measured": 18,
+            "requirement": "18 valid solids",
+            "passed": true,
+            "unit": "solids",
+            "method": "OpenCASCADE isValid and positive volume; not a dimensional check"
+          },
+          {
+            "name": "Chassis thickness",
+            "measured": 1.2,
+            "requirement": "\u2265 2.4 mm",
+            "passed": false,
+            "unit": "mm",
+            "method": "B-rep measurement"
+          },
+          {
+            "name": "Tray wall",
+            "measured": 1.2,
+            "requirement": "\u2265 2.4 mm",
+            "passed": false,
+            "unit": "mm",
+            "method": "Minimum of four paired planar wall-face offsets; not a global wall-thickness test"
+          },
+          {
+            "name": "Board clearance",
+            "measured": 0.1,
+            "requirement": "\u2265 0.8 mm",
+            "passed": false,
+            "unit": "mm",
+            "method": "Minimum B-rep distance from board envelope to tray sidewalls"
+          },
+          {
+            "name": "Chassis length",
+            "measured": 140.0,
+            "requirement": "140 \u00b1 0.01 mm",
+            "passed": true,
+            "unit": "mm",
+            "method": "B-rep measurement"
+          },
+          {
+            "name": "Tray edge margin",
+            "measured": 23.7,
+            "requirement": "\u2265 4 mm",
+            "passed": true,
+            "unit": "mm",
+            "method": "B-rep measurement"
+          }
+        ]
+      },
+      "repair": {
+        "thickness": 2.4,
+        "wall": 2.4,
+        "clearance": 0.8
+      },
+      "after": {
+        "passed": true,
+        "checks": [
+          {
+            "name": "Solid validity",
+            "measured": 18,
+            "requirement": "18 valid solids",
+            "passed": true,
+            "unit": "solids",
+            "method": "OpenCASCADE isValid and positive volume; not a dimensional check"
+          },
+          {
+            "name": "Chassis thickness",
+            "measured": 2.4,
+            "requirement": "\u2265 2.4 mm",
+            "passed": true,
+            "unit": "mm",
+            "method": "B-rep measurement"
+          },
+          {
+            "name": "Tray wall",
+            "measured": 2.4,
+            "requirement": "\u2265 2.4 mm",
+            "passed": true,
+            "unit": "mm",
+            "method": "Minimum of four paired planar wall-face offsets; not a global wall-thickness test"
+          },
+          {
+            "name": "Board clearance",
+            "measured": 0.8,
+            "requirement": "\u2265 0.8 mm",
+            "passed": true,
+            "unit": "mm",
+            "method": "Minimum B-rep distance from board envelope to tray sidewalls"
+          },
+          {
+            "name": "Chassis length",
+            "measured": 140.0,
+            "requirement": "140 \u00b1 0.01 mm",
+            "passed": true,
+            "unit": "mm",
+            "method": "B-rep measurement"
+          },
+          {
+            "name": "Tray edge margin",
+            "measured": 21.8,
+            "requirement": "\u2265 4 mm",
+            "passed": true,
+            "unit": "mm",
+            "method": "B-rep measurement"
+          }
+        ]
+      }
+    },
+    {
+      "case": "compact",
+      "input": {
+        "length": 120,
+        "width": 80,
+        "thickness": 1.2,
+        "wall": 1.2,
+        "clearance": 0.1,
+        "mast_height": 52
+      },
+      "before": {
+        "passed": false,
+        "checks": [
+          {
+            "name": "Solid validity",
+            "measured": 18,
+            "requirement": "18 valid solids",
+            "passed": true,
+            "unit": "solids",
+            "method": "OpenCASCADE isValid and positive volume; not a dimensional check"
+          },
+          {
+            "name": "Chassis thickness",
+            "measured": 1.2,
+            "requirement": "\u2265 2.4 mm",
+            "passed": false,
+            "unit": "mm",
+            "method": "B-rep measurement"
+          },
+          {
+            "name": "Tray wall",
+            "measured": 1.2,
+            "requirement": "\u2265 2.4 mm",
+            "passed": false,
+            "unit": "mm",
+            "method": "Minimum of four paired planar wall-face offsets; not a global wall-thickness test"
+          },
+          {
+            "name": "Board clearance",
+            "measured": 0.1,
+            "requirement": "\u2265 0.8 mm",
+            "passed": false,
+            "unit": "mm",
+            "method": "Minimum B-rep distance from board envelope to tray sidewalls"
+          },
+          {
+            "name": "Chassis length",
+            "measured": 120.0,
+            "requirement": "120 \u00b1 0.01 mm",
+            "passed": true,
+            "unit": "mm",
+            "method": "B-rep measurement"
+          },
+          {
+            "name": "Tray edge margin",
+            "measured": 18.7,
+            "requirement": "\u2265 4 mm",
+            "passed": true,
+            "unit": "mm",
+            "method": "B-rep measurement"
+          }
+        ]
+      },
+      "repair": {
+        "thickness": 2.4,
+        "wall": 2.4,
+        "clearance": 0.8
+      },
+      "after": {
+        "passed": true,
+        "checks": [
+          {
+            "name": "Solid validity",
+            "measured": 18,
+            "requirement": "18 valid solids",
+            "passed": true,
+            "unit": "solids",
+            "method": "OpenCASCADE isValid and positive volume; not a dimensional check"
+          },
+          {
+            "name": "Chassis thickness",
+            "measured": 2.4,
+            "requirement": "\u2265 2.4 mm",
+            "passed": true,
+            "unit": "mm",
+            "method": "B-rep measurement"
+          },
+          {
+            "name": "Tray wall",
+            "measured": 2.4,
+            "requirement": "\u2265 2.4 mm",
+            "passed": true,
+            "unit": "mm",
+            "method": "Minimum of four paired planar wall-face offsets; not a global wall-thickness test"
+          },
+          {
+            "name": "Board clearance",
+            "measured": 0.8,
+            "requirement": "\u2265 0.8 mm",
+            "passed": true,
+            "unit": "mm",
+            "method": "Minimum B-rep distance from board envelope to tray sidewalls"
+          },
+          {
+            "name": "Chassis length",
+            "measured": 120.0,
+            "requirement": "120 \u00b1 0.01 mm",
+            "passed": true,
+            "unit": "mm",
+            "method": "B-rep measurement"
+          },
+          {
+            "name": "Tray edge margin",
+            "measured": 16.8,
+            "requirement": "\u2265 4 mm",
+            "passed": true,
+            "unit": "mm",
+            "method": "B-rep measurement"
+          }
+        ]
+      }
+    },
+    {
+      "case": "long-mast",
+      "input": {
+        "length": 180,
+        "width": 110,
+        "thickness": 1.2,
+        "wall": 1.2,
+        "clearance": 0.1,
+        "mast_height": 75
+      },
+      "before": {
+        "passed": false,
+        "checks": [
+          {
+            "name": "Solid validity",
+            "measured": 18,
+            "requirement": "18 valid solids",
+            "passed": true,
+            "unit": "solids",
+            "method": "OpenCASCADE isValid and positive volume; not a dimensional check"
+          },
+          {
+            "name": "Chassis thickness",
+            "measured": 1.2,
+            "requirement": "\u2265 2.4 mm",
+            "passed": false,
+            "unit": "mm",
+            "method": "B-rep measurement"
+          },
+          {
+            "name": "Tray wall",
+            "measured": 1.2,
+            "requirement": "\u2265 2.4 mm",
+            "passed": false,
+            "unit": "mm",
+            "method": "Minimum of four paired planar wall-face offsets; not a global wall-thickness test"
+          },
+          {
+            "name": "Board clearance",
+            "measured": 0.1,
+            "requirement": "\u2265 0.8 mm",
+            "passed": false,
+            "unit": "mm",
+            "method": "Minimum B-rep distance from board envelope to tray sidewalls"
+          },
+          {
+            "name": "Chassis length",
+            "measured": 180.0,
+            "requirement": "180 \u00b1 0.01 mm",
+            "passed": true,
+            "unit": "mm",
+            "method": "B-rep measurement"
+          },
+          {
+            "name": "Tray edge margin",
+            "measured": 33.7,
+            "requirement": "\u2265 4 mm",
+            "passed": true,
+            "unit": "mm",
+            "method": "B-rep measurement"
+          }
+        ]
+      },
+      "repair": {
+        "thickness": 2.4,
+        "wall": 2.4,
+        "clearance": 0.8
+      },
+      "after": {
+        "passed": true,
+        "checks": [
+          {
+            "name": "Solid validity",
+            "measured": 18,
+            "requirement": "18 valid solids",
+            "passed": true,
+            "unit": "solids",
+            "method": "OpenCASCADE isValid and positive volume; not a dimensional check"
+          },
+          {
+            "name": "Chassis thickness",
+            "measured": 2.4,
+            "requirement": "\u2265 2.4 mm",
+            "passed": true,
+            "unit": "mm",
+            "method": "B-rep measurement"
+          },
+          {
+            "name": "Tray wall",
+            "measured": 2.4,
+            "requirement": "\u2265 2.4 mm",
+            "passed": true,
+            "unit": "mm",
+            "method": "Minimum of four paired planar wall-face offsets; not a global wall-thickness test"
+          },
+          {
+            "name": "Board clearance",
+            "measured": 0.8,
+            "requirement": "\u2265 0.8 mm",
+            "passed": true,
+            "unit": "mm",
+            "method": "Minimum B-rep distance from board envelope to tray sidewalls"
+          },
+          {
+            "name": "Chassis length",
+            "measured": 180.0,
+            "requirement": "180 \u00b1 0.01 mm",
+            "passed": true,
+            "unit": "mm",
+            "method": "B-rep measurement"
+          },
+          {
+            "name": "Tray edge margin",
+            "measured": 31.8,
+            "requirement": "\u2265 4 mm",
+            "passed": true,
+            "unit": "mm",
+            "method": "B-rep measurement"
+          }
+        ]
+      }
+    },
+    {
+      "case": "already-valid",
+      "input": {
+        "length": 140,
+        "width": 90,
+        "thickness": 2.4,
+        "wall": 2.4,
+        "clearance": 0.8,
+        "mast_height": 52
+      },
+      "before": {
+        "passed": true,
+        "checks": [
+          {
+            "name": "Solid validity",
+            "measured": 18,
+            "requirement": "18 valid solids",
+            "passed": true,
+            "unit": "solids",
+            "method": "OpenCASCADE isValid and positive volume; not a dimensional check"
+          },
+          {
+            "name": "Chassis thickness",
+            "measured": 2.4,
+            "requirement": "\u2265 2.4 mm",
+            "passed": true,
+            "unit": "mm",
+            "method": "B-rep measurement"
+          },
+          {
+            "name": "Tray wall",
+            "measured": 2.4,
+            "requirement": "\u2265 2.4 mm",
+            "passed": true,
+            "unit": "mm",
+            "method": "Minimum of four paired planar wall-face offsets; not a global wall-thickness test"
+          },
+          {
+            "name": "Board clearance",
+            "measured": 0.8,
+            "requirement": "\u2265 0.8 mm",
+            "passed": true,
+            "unit": "mm",
+            "method": "Minimum B-rep distance from board envelope to tray sidewalls"
+          },
+          {
+            "name": "Chassis length",
+            "measured": 140.0,
+            "requirement": "140 \u00b1 0.01 mm",
+            "passed": true,
+            "unit": "mm",
+            "method": "B-rep measurement"
+          },
+          {
+            "name": "Tray edge margin",
+            "measured": 21.8,
+            "requirement": "\u2265 4 mm",
+            "passed": true,
+            "unit": "mm",
+            "method": "B-rep measurement"
+          }
+        ]
+      },
+      "repair": {},
+      "after": {
+        "passed": true,
+        "checks": [
+          {
+            "name": "Solid validity",
+            "measured": 18,
+            "requirement": "18 valid solids",
+            "passed": true,
+            "unit": "solids",
+            "method": "OpenCASCADE isValid and positive volume; not a dimensional check"
+          },
+          {
+            "name": "Chassis thickness",
+            "measured": 2.4,
+            "requirement": "\u2265 2.4 mm",
+            "passed": true,
+            "unit": "mm",
+            "method": "B-rep measurement"
+          },
+          {
+            "name": "Tray wall",
+            "measured": 2.4,
+            "requirement": "\u2265 2.4 mm",
+            "passed": true,
+            "unit": "mm",
+            "method": "Minimum of four paired planar wall-face offsets; not a global wall-thickness test"
+          },
+          {
+            "name": "Board clearance",
+            "measured": 0.8,
+            "requirement": "\u2265 0.8 mm",
+            "passed": true,
+            "unit": "mm",
+            "method": "Minimum B-rep distance from board envelope to tray sidewalls"
+          },
+          {
+            "name": "Chassis length",
+            "measured": 140.0,
+            "requirement": "140 \u00b1 0.01 mm",
+            "passed": true,
+            "unit": "mm",
+            "method": "B-rep measurement"
+          },
+          {
+            "name": "Tray edge margin",
+            "measured": 21.8,
+            "requirement": "\u2265 4 mm",
+            "passed": true,
+            "unit": "mm",
+            "method": "B-rep measurement"
+          }
+        ]
+      }
+    }
+  ],
+  "before_pass_count": 1,
+  "after_pass_count": 4,
+  "case_count": 4
+}

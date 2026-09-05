@@ -1,0 +1,58 @@
+{
+  "servers": [
+    {
+      "name": "autocadent-cad",
+      "tools": 2,
+      "call": "inspect_spec",
+      "passed": true,
+      "initialize": {
+        "name": "AutoCadent CAD",
+        "title": null,
+        "version": "1.29.1",
+        "websiteUrl": null,
+        "icons": null
+      },
+      "result": {
+        "meta": null,
+        "content": [
+          {
+            "type": "text",
+            "text": "{\n  \"passed\": false,\n  \"checks\": [\n    {\n      \"name\": \"Solid validity\",\n      \"measured\": 18,\n      \"requirement\": \"18 valid solids\",\n      \"passed\": true,\n      \"unit\": \"solids\",\n      \"method\": \"OpenCASCADE isValid and positive volume; not a dimensional check\"\n    },\n    {\n      \"name\": \"Chassis thickness\",\n      \"measured\": 1.2,\n      \"requirement\": \"\u2265 2.4 mm\",\n      \"passed\": false,\n      \"unit\": \"mm\",\n      \"method\": \"B-rep measurement\"\n    },\n    {\n      \"name\": \"Tray wall\",\n      \"measured\": 1.2,\n      \"requirement\": \"\u2265 2.4 mm\",\n      \"passed\": false,\n      \"unit\": \"mm\",\n      \"method\": \"Minimum of four paired planar wall-face offsets; not a global wall-thickness test\"\n    },\n    {\n      \"name\": \"Board clearance\",\n      \"measured\": 0.1,\n      \"requirement\": \"\u2265 0.8 mm\",\n      \"passed\": false,\n      \"unit\": \"mm\",\n      \"method\": \"Minimum B-rep distance from board envelope to tray sidewalls\"\n    },\n    {\n      \"name\": \"Chassis length\",\n      \"measured\": 140.0,\n      \"requirement\": \"140 \u00b1 0.01 mm\",\n      \"passed\": true,\n      \"unit\": \"mm\",\n      \"method\": \"B-rep measurement\"\n    },\n    {\n      \"name\": \"Tray edge margin\",\n      \"measured\": 23.7,\n      \"requirement\": \"\u2265 4 mm\",\n      \"passed\": true,\n      \"unit\": \"mm\",\n      \"method\": \"B-rep measurement\"\n    }\n  ]\n}",
+            "annotations": null,
+            "meta": null
+          }
+        ],
+        "structuredContent": null,
+        "isError": false
+      }
+    },
+    {
+      "name": "kicad",
+      "tools": 109,
+      "call": "get_board_info",
+      "passed": true,
+      "initialize": {
+        "name": "kicad",
+        "title": null,
+        "version": "0.20.1",
+        "websiteUrl": null,
+        "icons": null
+      },
+      "result": {
+        "meta": null,
+        "content": [
+          {
+            "type": "text",
+            "text": "Footprints: 6\nTraces: 4\nVias: 0\nNets: 4\nZones: 0\nThickness: 1.6mm",
+            "annotations": null,
+            "meta": null
+          }
+        ],
+        "structuredContent": {
+          "result": "Footprints: 6\nTraces: 4\nVias: 0\nNets: 4\nZones: 0\nThickness: 1.6mm"
+        },
+        "isError": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "kicad": {
+      "command": "uvx",
+      "args": ["--python", "3.12", "--from", "mcp-server-kicad==0.20.1", "mcp-server-kicad"],
+      "cwd": "hardware/kicad"
+    },
+    "autocadent-cad": {
+      "command": "uv",
+      "args": ["run", "python", "-m", "autocadent.mcp_server"],
+      "cwd": "."
+    }
+  }
+}
