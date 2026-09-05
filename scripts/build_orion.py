@@ -18,7 +18,7 @@ from pathlib import Path
 
 BASE = "https://raw.githubusercontent.com/AshishA26/Orion-Quadruped/master/urdf/urdf_files_original"
 OUT = Path(__file__).resolve().parents[1] / "web" / "artifacts" / "orion"
-TRI_BUDGET = 60000  # total triangles after stride decimation
+TRI_BUDGET = None  # full resolution; vertex welding only, binary output
 COLORS = {
     "chassis": ("#f2efe6", "structure"),
     "lidar": ("#3a3f3d", "electronics"),
@@ -158,20 +158,19 @@ def main():
             uses.setdefault(mesh, []).append((mul(t, vt), read_stl(data)))
 
     total = sum(len(lst) for v in uses.values() for _, lst in v)
-    stride = max(1, math.ceil(total / TRI_BUDGET))
-    print(f"links={len(world)} tris={total} stride={stride}")
+    print(f"links={len(world)} tris={total} (full resolution, welded)")
 
     parts = []
     for mesh, uu in sorted(uses.items()):
         verts, index, out = [], {}, []
         for wt, lst in uu:
-            for a, b, c in lst[::stride]:
+            for a, b, c in lst:
                 out.append([lookup(apply(wt, v), verts, index) for v in (a, b, c)])
         color, group = COLORS[key(mesh)]
         parts.append({"name": mesh.replace(".STL", "").replace("_", " "),
                       "color": color, "group": group, "printable": False, "edges": False,
                       "vertices": verts, "triangles": out})
-        print(f"{mesh}: {len(out)} tris")
+        print(f"{mesh}: {len(out)} tris, {len(verts)} verts")
 
     allv = [v for p in parts for v in p["vertices"]]
     xs = [v[0] for v in allv]
@@ -180,7 +179,25 @@ def main():
     dx, dy, dz = -(min(xs) + max(xs)) / 2, -(min(ys) + max(ys)) / 2, -min(zs)
     for p in parts:
         p["vertices"] = [[round(v[0] + dx, 2), round(v[1] + dy, 2), round(v[2] + dz, 2)] for v in p["vertices"]]
-    (OUT / "mesh.json").write_text(json.dumps(parts))
+    import array
+    vbuf, ibuf, meta = array.array("f"), array.array("I"), []
+    for part in parts:
+        vstart = len(vbuf)
+        for v in part["vertices"]:
+            vbuf.extend(v)
+        istart = len(ibuf)
+        base = vstart // 3
+        for tri in part["triangles"]:
+            ibuf.extend((tri[0] + base, tri[1] + base, tri[2] + base))
+        meta.append({"name": part["name"], "color": part["color"], "group": part["group"],
+                     "printable": part["printable"], "edges": part["edges"], "opaque": True,
+                     "vertStart": vstart, "vertCount": len(part["vertices"]),
+                     "triStart": istart, "triCount": len(part["triangles"])})
+    with open(OUT / "mesh.bin", "wb") as f:
+        vbuf.tofile(f)
+        ibuf.tofile(f)
+    (OUT / "mesh.json").write_text(json.dumps({"bin": "mesh.bin",
+        "vertTotal": len(vbuf) // 3, "triTotal": len(ibuf) // 3, "parts": meta}))
     manifest = {
         "project": "Orion Quadruped (reference)",
         "source": "https://github.com/AshishA26/Orion-Quadruped",
@@ -188,6 +205,7 @@ def main():
         "evaluated": False,
         "note": "Unevaluated reference geometry for visualization only. Not measured, not checked.",
         "parts": [{"name": p["name"], "triangles": len(p["triangles"])} for p in parts],
+        "format": "binary mesh.bin: float32 xyz verts, uint32 indices",
     }
     (OUT / "manifest.json").write_text(json.dumps(manifest, indent=2))
     print("wrote", OUT / "mesh.json")

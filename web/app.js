@@ -67,7 +67,7 @@ function drawMeshes(meshes){
  assembly=new THREE.Group();
  for(const p of meshes){try{
   const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(p.vertices.flat(),3));geometry.setIndex(p.triangles.flat());geometry.computeVertexNormals();
-  const material=new THREE.MeshStandardMaterial({color:p.color,roughness:.58,metalness:.12,transparent:true,opacity:translucent?.58:1,side:THREE.DoubleSide,depthWrite:!translucent});
+  const op=p.opaque===true;const material=new THREE.MeshStandardMaterial({color:p.color,roughness:op?.5:.58,metalness:op?.28:.12,transparent:!op,opacity:op?1:(translucent?.58:1),side:THREE.DoubleSide,depthWrite:op?true:!translucent});
   const mesh=new THREE.Mesh(geometry,material);mesh.userData=p;const edges=new THREE.LineSegments(new THREE.EdgesGeometry(geometry,25),new THREE.LineBasicMaterial({color:p.group==='electronics'?0x286f70:0x536059,transparent:true,opacity:.5}));if(p.edges!==false)mesh.add(edges);assembly.add(mesh)
  }catch(e){console.warn('Skipping a non-renderable part:',p?.name,e)}}
   scene.add(assembly);
@@ -75,7 +75,7 @@ function drawMeshes(meshes){
   updateModel();renderAssemblyPanel();renderTimeline();setViewStatus('','');
 }
 function fitAssembly(){if(!assembly||!camera)return;const box=new THREE.Box3().setFromObject(assembly);const c=box.getCenter(new THREE.Vector3()),s=box.getSize(new THREE.Vector3());const maxDim=Math.max(s.x,s.y,s.z)||1;const dist=maxDim/(2*Math.tan(camera.fov*Math.PI/360))*1.35;const dir=camera.position.clone().sub(controls.target);if(!dir.lengthSq())dir.set(1,-1,.7);dir.normalize();controls.target.copy(c);camera.position.copy(c.clone().add(dir.multiplyScalar(dist)));camera.near=Math.max(.1,dist/100);camera.far=dist*20;camera.updateProjectionMatrix();controls.update()}
-function updateModel(){if(!assembly)return;assembly.children.forEach((mesh,i)=>{mesh.visible=isolatedName?mesh.userData.name===isolatedName:(currentGroup==='all'||mesh.userData.group===currentGroup);mesh.material.opacity=translucent?.56:1;mesh.material.depthWrite=!translucent;mesh.position.z=exploded?(mesh.userData.group==='electronics'?48:mesh.userData.name==='Sensor mast'?30:mesh.userData.name==='Board tray'?20:0):0; if(mesh.userData.group==='mobility')mesh.position.y=exploded?(i%4<2?-22:22):0;});}
+function updateModel(){if(!assembly)return;assembly.children.forEach((mesh,i)=>{mesh.visible=isolatedName?mesh.userData.name===isolatedName:(currentGroup==='all'||mesh.userData.group===currentGroup);mesh.material.opacity=mesh.userData.opaque?1:(translucent?.56:1);mesh.material.depthWrite=mesh.userData.opaque?true:!translucent;mesh.position.z=exploded?(mesh.userData.group==='electronics'?48:mesh.userData.name==='Sensor mast'?30:mesh.userData.name==='Board tray'?20:0):0; if(mesh.userData.group==='mobility')mesh.position.y=exploded?(i%4<2?-22:22):0;});}
 $$('[data-group]').forEach(b=>b.onclick=()=>{currentGroup=b.dataset.group;$$('[data-group]').forEach(el=>el.classList.toggle('active',el===b));updateModel()});
 $('#reset-view').onclick=reset;$('#wireframe').onclick=()=>{translucent=!translucent;$('#wireframe').setAttribute('aria-pressed',translucent);updateModel()};$('#explode').onclick=()=>{exploded=!exploded;$('#explode').setAttribute('aria-pressed',exploded);updateModel()};
 function zoom(f){camera.position.sub(controls.target).multiplyScalar(f).add(controls.target);controls.update()};$('#zoom-in').onclick=()=>zoom(.85);$('#zoom-out').onclick=()=>zoom(1.15);
@@ -83,12 +83,13 @@ function tab(name){const views={dashboard:'dashboard',preview:'preview',explorer
 $$('[data-tab]').forEach(b=>b.onclick=()=>{location.hash='#/'+(b.dataset.tab==='preview'?'explorer':b.dataset.tab)});window.addEventListener('hashchange',()=>{const h=(location.hash||'').replace(/^#\/?/,'');tab(h||'dashboard')});
 function pulseHero(){const h=document.querySelector('.canvas-title');if(!h)return;h.classList.remove('intro-hide');clearTimeout(window.__heroT);window.__heroT=setTimeout(()=>h.classList.add('intro-hide'),4500)}
 function syncModelButtons(){$$('[data-model]').forEach(b=>{const on=b.dataset.model===model;b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on))})}
+async function loadOrionMeshes(){const man=await json('artifacts/orion/mesh.json');const res=await fetch('artifacts/orion/mesh.bin');if(!res.ok)throw Error('bundle missing');const buf=await res.arrayBuffer();const F=new Float32Array(buf,0,man.vertTotal*3),I=new Uint32Array(buf,man.vertTotal*12);return man.parts.map(p=>({name:p.name,color:p.color,group:p.group,printable:p.printable,edges:p.edges,opaque:p.opaque,vertices:Array.from(F.subarray(p.vertStart,p.vertStart+p.vertCount*3)),triangles:Array.from(I.subarray(p.triStart,p.triStart+p.triCount*3))}))}
 async function loadModel(name){
  model=name;syncModelButtons();
  if(name==='orion'){
   setViewStatus('Loading reference geometry…','loading');
   try{
-   drawMeshes(await json('artifacts/orion/mesh.json'));
+   drawMeshes(await loadOrionMeshes());
    $('#brief-text').textContent='Orion Quadruped by Ashish Agrahari — reference geometry (16 parts, zero-pose URDF assembly). Unevaluated; not measured.';
    $('#revision-label').textContent='ORION · REFERENCE — UNEVALUATED';
    $('#project-state').textContent='Reference geometry';

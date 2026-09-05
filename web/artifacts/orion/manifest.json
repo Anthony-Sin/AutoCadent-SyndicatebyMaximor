@@ -7,67 +7,68 @@
   "parts": [
     {
       "name": "back left link 1",
-      "triangles": 4715
+      "triangles": 33000
     },
     {
       "name": "back left link 2",
-      "triangles": 3089
+      "triangles": 21622
     },
     {
       "name": "back left link 3",
-      "triangles": 698
+      "triangles": 4886
     },
     {
       "name": "back right link 1",
-      "triangles": 4715
+      "triangles": 33000
     },
     {
       "name": "back right link 2",
-      "triangles": 3089
+      "triangles": 21622
     },
     {
       "name": "back right link 3",
-      "triangles": 698
+      "triangles": 4884
     },
     {
       "name": "chassis link",
-      "triangles": 6448
+      "triangles": 45134
     },
     {
       "name": "front left link 1",
-      "triangles": 4715
+      "triangles": 33000
     },
     {
       "name": "front left link 2",
-      "triangles": 3089
+      "triangles": 21622
     },
     {
       "name": "front left link 3",
-      "triangles": 698
+      "triangles": 4886
     },
     {
       "name": "front right link 1",
-      "triangles": 5553
+      "triangles": 38868
     },
     {
       "name": "front right link 2",
-      "triangles": 3089
+      "triangles": 21622
     },
     {
       "name": "front right link 3",
-      "triangles": 698
+      "triangles": 4884
     },
     {
       "name": "left camera link",
-      "triangles": 384
+      "triangles": 2682
     },
     {
       "name": "lidar link",
-      "triangles": 17598
+      "triangles": 123186
     },
     {
       "name": "right camera link",
-      "triangles": 341
+      "triangles": 2382
     }
-  ]
+  ],
+  "format": "binary mesh.bin: float32 xyz verts, uint32 indices"
 }
