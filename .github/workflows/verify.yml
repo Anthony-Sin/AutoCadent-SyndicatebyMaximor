@@ -56,6 +56,22 @@ jobs:
           Xvfb :99 -screen 0 1920x1080x24 &
           echo "DISPLAY=:99" >> $GITHUB_ENV
       - run: /usr/bin/python3 -c "import pcbnew; print('pcbnew OK:', pcbnew.__file__)"
+      - name: Dump pcbnew API surface (temporary)
+        run: |
+          /usr/bin/python3 -c "
+          import pcbnew as k
+          print('=== KiCad version:', k.Version())
+          print('=== PLOT_CONTROLLER methods:')
+          for m in sorted(dir(k.PLOT_CONTROLLER)):
+              if not m.startswith('_'): print(f'  {m}')
+          print('=== PCB_PLOT_PARAMS methods:')
+          p = k.PCB_PLOT_PARAMS()
+          for m in sorted(dir(p)):
+              if not m.startswith('_'): print(f'  {m}')
+          print('=== EXCELLON_WRITER methods:')
+          for m in sorted(dir(k.EXCELLON_WRITER)):
+              if not m.startswith('_'): print(f'  {m}')
+          "
       - run: uv sync --locked --python 3.12
       - run: uv run pytest -q --disable-warnings
       - run: uv run python -m scripts.benchmark
