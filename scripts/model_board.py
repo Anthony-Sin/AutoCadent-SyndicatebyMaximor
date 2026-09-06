@@ -65,17 +65,16 @@ def generate(spec, out):
     gerber_dir=out/'gerbers'; gerber_dir.mkdir(parents=True,exist_ok=True)
     # Native pcbnew gerber/drill export — defensive across KiCad API versions.
     saved=k.LoadBoard(str(path))
-    opts=k.PCB_PLOT_PARAMS()
-    for attr,val in [('SetOutputDirectory',str(gerber_dir)),('SetFormat',k.PLOT_FORMAT_GERBER),('SetUseGerberAttributes',True),('SetPlotFrameRef',False)]:
-        fn=getattr(opts,attr,None)
-        if fn: fn(val)
-    # PLOT_CONTROLLER: try (board,params), then (board)+SetPlotParams, then (board) alone.
+    # PLOT_CONTROLLER: try (board,params), then (board) alone.
     try:
         pc=k.PLOT_CONTROLLER(saved,opts)
     except TypeError:
         pc=k.PLOT_CONTROLLER(saved)
-        sp=getattr(pc,'SetPlotParams',None)
-        if sp: sp(opts)
+    # Configure plot params via the controller's own options (works in all KiCad versions).
+    p=pc.GetPlotOptions()
+    for attr,val in [('SetOutputDirectory',str(gerber_dir)),('SetFormat',k.PLOT_FORMAT_GERBER),('SetUseGerberAttributes',True),('SetPlotFrameRef',False)]:
+        fn=getattr(p,attr,None)
+        if fn: fn(val)
     for layer_id,layer_name in [(k.F_Cu,'F.Cu'),(k.F_SilkS,'F.SilkS'),(k.Edge_Cuts,'Edge.Cuts')]:
         pc.SetLayer(layer_id)
         pc.OpenPlotfile(layer_name,False,f'{layer_name}.gbr')
