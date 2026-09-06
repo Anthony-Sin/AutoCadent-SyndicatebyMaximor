@@ -9,6 +9,11 @@
       "command": "uv",
       "args": ["run", "python", "-m", "autocadent.mcp_server"],
       "cwd": "."
+    },
+    "svg-pcb": {
+      "command": "uv",
+      "args": ["run", "python", "-m", "autocadent.mcp_svgpcb"],
+      "cwd": "."
     }
   }
 }
