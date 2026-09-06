@@ -52,7 +52,8 @@ def run_benchmark(db_path: str | None = None, max_revisions: int = 5) -> dict:
                 spec = Spec(**adjusted)
                 parts, measured = build(spec)
                 result = evaluate(spec, parts, measured)
-                store.cache_put("cad_build", NAIVE_SPEC, {"spec": adjusted})
+                if result["passed"]:
+                    store.cache_put("cad_build", NAIVE_SPEC, {"spec": adjusted})
 
             duration_ms = (time.monotonic() - start) * 1000
             passed = sum(1 for c in result["checks"] if c["passed"])
@@ -92,7 +93,7 @@ def run_benchmark(db_path: str | None = None, max_revisions: int = 5) -> dict:
                     if r.rule_id in retrieved_ids:
                         store.update_outcome(r.rule_id, helped=result["passed"])
 
-            pruned = store.prune_rules(min_applied=3, min_help_rate=0.3)
+            pruned = store.prune_rules(min_applied=3, min_help_rate=0.3) if result["passed"] else []
             total_pruned += len(pruned)
             mem_stats = store.get_memory_stats()
 
