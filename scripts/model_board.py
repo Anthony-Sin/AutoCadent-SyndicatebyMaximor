@@ -77,7 +77,7 @@ def generate(spec, out):
         if fn: fn(val)
     for layer_id,layer_name in [(k.F_Cu,'F.Cu'),(k.F_SilkS,'F.SilkS'),(k.Edge_Cuts,'Edge.Cuts')]:
         pc.SetLayer(layer_id)
-        pc.OpenPlotfile(layer_name,False,f'{layer_name}.gbr')
+        pc.OpenPlotfile(layer_name,False,layer_name)
         pc.PlotLayer()
         pc.ClosePlot()
     del pc
