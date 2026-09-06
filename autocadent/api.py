@@ -18,6 +18,7 @@ from .provider import ProviderConfig, ProviderError, Tensormux
 from .model_pipeline import run_model, CompilerError
 from .memory import MemoryStore
 from .agents import SubAgentGraph
+from . import mcp_bridge
 
 ROOT=Path(__file__).resolve().parents[1]
 JOBS=ROOT/'.runs/jobs'; JOBS.mkdir(parents=True,exist_ok=True)
@@ -271,6 +272,31 @@ def agent_chat(req: ChatRequest):
     reply = " ".join(reply_parts) if reply_parts else "No matching data found."
     return {"reply": reply, "cards": cards, "chips": chips, "citations": citations}
 
+
+class McpCallRequest(BaseModel):
+    model_config=ConfigDict(extra='forbid')
+    server: str=Field(min_length=1,max_length=64)
+    tool: str=Field(min_length=1,max_length=128)
+    args: dict=Field(default_factory=dict)
+
+@app.get('/api/mcp/servers')
+def mcp_servers():
+    try:
+        return mcp_bridge.list_tools_with_servers()
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+@app.post('/api/mcp/call')
+def mcp_call(req: McpCallRequest):
+    try:
+        episode = mcp_bridge.call_tool(req.server, req.tool, req.args)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    except Exception as e:
+        raise HTTPException(502, f'MCP invocation failed: {e}')
+    if episode['status'] == 'unavailable':
+        raise HTTPException(502, episode['error'])
+    return episode
 
 # Job artifacts are shareable by opaque UUID. Do not put secrets in briefs.
 # Private hosted deployments should enforce auth at the reverse proxy for all paths.
