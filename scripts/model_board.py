@@ -65,12 +65,8 @@ def generate(spec, out):
     gerber_dir=out/'gerbers'; gerber_dir.mkdir(parents=True,exist_ok=True)
     # Native pcbnew gerber/drill export — defensive across KiCad API versions.
     saved=k.LoadBoard(str(path))
-    # PLOT_CONTROLLER: try (board,params), then (board) alone.
-    try:
-        pc=k.PLOT_CONTROLLER(saved,opts)
-    except TypeError:
-        pc=k.PLOT_CONTROLLER(saved)
-    # Configure plot params via the controller's own options (works in all KiCad versions).
+    pc=k.PLOT_CONTROLLER(saved)
+    # Configure plot params via the controller's own options.
     p=pc.GetPlotOptions()
     for attr,val in [('SetOutputDirectory',str(gerber_dir)),('SetFormat',k.PLOT_FORMAT_GERBER),('SetUseGerberAttributes',True),('SetPlotFrameRef',False)]:
         fn=getattr(p,attr,None)
