@@ -91,7 +91,7 @@ def generate(spec, out):
     if create_fn: create_fn(str(gerber_dir),False,False)
     del ew
     # DRC and SVG via kicad-cli
-    commands=[['pcb','drc','--format','json','-o',str(out/'drc.json'),str(path)],['pcb','export','svg','--layers','F.Cu,F.SilkS,Edge.Cuts','--page-size-mode','2','--mode-single','-o',str(out/'board.svg'),str(path)]]
+    commands=[['pcb','drc','--format','json','-o',str(out/'drc.json'),str(path)],['pcb','export','svg','--layers','F.Cu,F.SilkS,Edge.Cuts','--page-size-mode','2','-o',str(out/'board.svg'),str(path)]]
     for args in commands:
         r=subprocess.run(['kicad-cli',*args],capture_output=True,text=True,timeout=45)
         if r.returncode!=0:
