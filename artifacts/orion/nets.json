@@ -1,0 +1,107 @@
+{
+  "project": "Orion Quadruped",
+  "title": "Quadruped Main Control & Actuator Bus",
+  "description": "Power distribution and high-speed communication bus connecting 12 brushless actuators, flight computer, dual stereo cameras, and 360\u00b0 LiDAR.",
+  "caution": "Quadruped control bus architecture. 12x joint telemetry, dual CAN bus with termination resistors, 24V/15A battery protection.",
+  "nets": [
+    {
+      "name": "VBAT (24V)",
+      "pins": [
+        "J5.1",
+        "PDB.IN",
+        "J1-J4.PWR"
+      ]
+    },
+    {
+      "name": "5V_SYS",
+      "pins": [
+        "PDB.5V",
+        "FC.5V",
+        "J6.1",
+        "CAM.5V"
+      ]
+    },
+    {
+      "name": "3V3_MCU",
+      "pins": [
+        "FC.3V3",
+        "IMU.VDD",
+        "MAG.VDD"
+      ]
+    },
+    {
+      "name": "CAN_H",
+      "pins": [
+        "FC.CAN_H",
+        "J1-J4.CH",
+        "TERM.120R"
+      ]
+    },
+    {
+      "name": "CAN_L",
+      "pins": [
+        "FC.CAN_L",
+        "J1-J4.CL",
+        "TERM.120R"
+      ]
+    },
+    {
+      "name": "UART_LIDAR",
+      "pins": [
+        "FC.UART2_RX",
+        "J6.RX",
+        "LIDAR.TX"
+      ]
+    },
+    {
+      "name": "CSI_CAM_L",
+      "pins": [
+        "FC.CSI0",
+        "J6.CAM_L"
+      ]
+    },
+    {
+      "name": "CSI_CAM_R",
+      "pins": [
+        "FC.CSI1",
+        "J6.CAM_R"
+      ]
+    },
+    {
+      "name": "PWM_FL (1-3)",
+      "pins": [
+        "FC.TIM1",
+        "J1.FL1",
+        "J1.FL2",
+        "J1.FL3"
+      ]
+    },
+    {
+      "name": "PWM_FR (4-6)",
+      "pins": [
+        "FC.TIM2",
+        "J3.FR1",
+        "J3.FR2",
+        "J3.FR3"
+      ]
+    },
+    {
+      "name": "PWM_RL (7-9)",
+      "pins": [
+        "FC.TIM3",
+        "J2.RL1",
+        "J2.RL2",
+        "J2.RL3"
+      ]
+    },
+    {
+      "name": "PWM_RR (10-12)",
+      "pins": [
+        "FC.TIM4",
+        "J4.RR1",
+        "J4.RR2",
+        "J4.RR3"
+      ]
+    }
+  ]
+}

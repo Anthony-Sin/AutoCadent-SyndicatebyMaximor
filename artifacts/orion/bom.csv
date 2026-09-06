@@ -1,0 +1,10 @@
+Reference,Value,Footprint,Description,Qty
+U1,STM32H743VIT6,LQFP-100,Quadruped Flight Controller MCU 480MHz ARM Cortex-M7,1
+U2,TI-TCAN334G,SOIC-8,Actuator Bus Transceiver CAN-FD 5Mbps,2
+U3,TPS54560,SO-PowerPAD-8,PDB Buck Regulator 24V to 5V 5A Synchronous,1
+U4,TLV75733,SOT-23-5,PDB LDO Linear Regulator 5V to 3.3V 1A Low-Noise,1
+BAT1,6S LiPo 22.2V 4500mAh 60C,Custom Bay,High-Discharge LiPo Battery Pack,1
+HUB1,Orion Actuator Bus Hub,Sub-assembly,12-Channel Actuator Bus Hub Distribution Module,1
+J1-J4,Molex Micro-Fit 3.0 8-Pin,Molex-43045-0800,Actuator Bus Quad Header Ports (FL/FR/BL/BR),4
+J5,XT60PW-M,Thru-Hole,Main Battery Power Terminal 60A Continuous,1
+J6,JST-GH 6-Pin 1.25mm,SMD,Sensor Interface Header (LiDAR UART and CSI Camera Sync),1

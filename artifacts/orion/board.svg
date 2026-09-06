@@ -1,0 +1,82 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns="http://www.w3.org/2000/svg" id="orion-board-layout" version="1.1" width="120mm" height="70mm" viewBox="0 0 600 350">
+  <title>Orion Quadruped Actuator Bus and Power Distribution Board</title>
+  <desc>KiCad PCB layout export for Orion quadruped controller</desc>
+  <rect width="600" height="350" rx="14" fill="#18241d" stroke="#3b5245" stroke-width="3"/>
+  <!-- Mounting Holes -->
+  <circle cx="25" cy="25" r="12" fill="none" stroke="#d5ab60" stroke-width="3"/>
+  <circle cx="25" cy="25" r="7" fill="#0d1410"/>
+  <circle cx="575" cy="25" r="12" fill="none" stroke="#d5ab60" stroke-width="3"/>
+  <circle cx="575" cy="25" r="7" fill="#0d1410"/>
+  <circle cx="25" cy="325" r="12" fill="none" stroke="#d5ab60" stroke-width="3"/>
+  <circle cx="25" cy="325" r="7" fill="#0d1410"/>
+  <circle cx="575" cy="325" r="12" fill="none" stroke="#d5ab60" stroke-width="3"/>
+  <circle cx="575" cy="325" r="7" fill="#0d1410"/>
+
+  <!-- Copper Bus Traces -->
+  <g stroke="#b86940" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.85">
+    <path d="M 60 70 L 170 70 L 170 140 L 260 140"/>
+    <path d="M 60 90 L 160 90 L 160 155 L 260 155"/>
+    <path d="M 60 110 L 150 110 L 150 170 L 260 170"/>
+    <path d="M 340 140 L 440 140 L 440 70 L 540 70"/>
+    <path d="M 340 155 L 430 155 L 430 90 L 540 90"/>
+    <path d="M 340 170 L 420 170 L 420 110 L 540 110"/>
+    <path d="M 120 280 L 180 280 L 180 220 L 260 220"/>
+    <path d="M 480 280 L 420 280 L 420 220 L 340 220"/>
+    <path d="M 270 90 L 330 90 L 330 130"/>
+    <path d="M 300 60 L 300 130"/>
+  </g>
+  <g stroke="#2d8e82" stroke-width="2.2" stroke-linecap="round" fill="none" opacity="0.9">
+    <path d="M 70 180 L 200 180 L 200 190 L 260 190"/>
+    <path d="M 70 200 L 190 200 L 190 205 L 260 205"/>
+    <path d="M 530 180 L 400 180 L 400 190 L 340 190"/>
+    <path d="M 530 200 L 410 200 L 410 205 L 340 205"/>
+    <path d="M 230 310 L 230 240 L 270 240"/>
+    <path d="M 370 310 L 370 240 L 330 240"/>
+  </g>
+
+  <!-- Central Flight Controller MCU & FPGA Area -->
+  <rect x="250" y="125" width="100" height="100" rx="4" fill="#203328" stroke="#d5ab60" stroke-width="2"/>
+  <rect x="265" y="140" width="70" height="70" rx="2" fill="#121d17" stroke="#486956" stroke-width="1.5"/>
+  <text x="300" y="178" font-family="monospace" font-size="10" fill="#a4cbb6" text-anchor="middle" font-weight="bold">STM32H7</text>
+  <text x="300" y="192" font-family="monospace" font-size="8" fill="#719482" text-anchor="middle">480MHz FPU</text>
+
+  <!-- Power Section / Buck Regulators -->
+  <rect x="240" y="45" width="120" height="55" rx="3" fill="#1b2e23" stroke="#87a895" stroke-width="1.2" stroke-dasharray="3,2"/>
+  <rect x="255" y="55" width="30" height="35" rx="2" fill="#2a3d31" stroke="#d5ab60" stroke-width="1"/>
+  <rect x="315" y="55" width="30" height="35" rx="2" fill="#2a3d31" stroke="#d5ab60" stroke-width="1"/>
+  <text x="270" y="76" font-family="monospace" font-size="7" fill="#e8ce9b" text-anchor="middle">24V→5V</text>
+  <text x="330" y="76" font-family="monospace" font-size="7" fill="#e8ce9b" text-anchor="middle">5V→3.3V</text>
+
+  <!-- Connectors: Front-Left / Rear-Left Actuator Ports -->
+  <g fill="#e3dfd3" stroke="#3d5648" stroke-width="1.5">
+    <rect x="40" y="60" width="40" height="65" rx="2"/>
+    <rect x="40" y="160" width="40" height="65" rx="2"/>
+    <rect x="40" y="255" width="65" height="35" rx="2"/>
+  </g>
+  <!-- Connectors: Front-Right / Rear-Right Actuator Ports -->
+  <g fill="#e3dfd3" stroke="#3d5648" stroke-width="1.5">
+    <rect x="520" y="60" width="40" height="65" rx="2"/>
+    <rect x="520" y="160" width="40" height="65" rx="2"/>
+    <rect x="495" y="255" width="65" height="35" rx="2"/>
+  </g>
+  <!-- Center Bottom Power & Sensor Ports -->
+  <g fill="#e3dfd3" stroke="#3d5648" stroke-width="1.5">
+    <rect x="200" y="285" width="85" height="40" rx="2"/>
+    <rect x="315" y="285" width="85" height="40" rx="2"/>
+  </g>
+
+  <!-- Silkscreen Text & Labels -->
+  <g font-family="IBM Plex Mono, monospace" fill="#dfded3">
+    <text x="300" y="30" font-size="12" font-weight="bold" text-anchor="middle" letter-spacing="1.5">ORION-QUADRUPED-PDB-HUB · REV 1.0</text>
+    <text x="60" y="52" font-size="9" text-anchor="middle">J1: FL1-3</text>
+    <text x="60" y="152" font-size="9" text-anchor="middle">J2: BL1-3</text>
+    <text x="540" y="52" font-size="9" text-anchor="middle">J3: FR1-3</text>
+    <text x="540" y="152" font-size="9" text-anchor="middle">J4: BR1-3</text>
+    <text x="242" y="310" font-size="9" text-anchor="middle">J5: VBAT 24V</text>
+    <text x="358" y="310" font-size="9" text-anchor="middle">J6: SENSORS</text>
+    <text x="72" y="277" font-size="8" text-anchor="middle">CAN BUS</text>
+    <text x="528" y="277" font-size="8" text-anchor="middle">UART/CSI</text>
+  </g>
+</svg>
