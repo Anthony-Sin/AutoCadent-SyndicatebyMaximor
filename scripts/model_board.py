@@ -3,6 +3,7 @@ No user code is loaded; inputs must match the server's fixed data-only schema.
 """
 import argparse
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -51,9 +52,21 @@ def generate(spec, out):
         pad=k.PAD(fp); pad.SetNumber(''); pad.SetAttribute(k.PAD_ATTRIB_NPTH); pad.SetShape(k.PAD_SHAPE_CIRCLE); pad.SetSize(xy(3.2,3.2)); pad.SetDrillSize(xy(3.2,3.2)); pad.SetLayerSet(k.LSET.AllCuMask()); pad.SetPosition(xy(x,y)); fp.Add(pad); b.Add(fp)
     label=k.PCB_TEXT(b); label.SetText('AUTOCADENT / SIGNAL BREAKOUT'); label.SetPosition(xy(130,135)); label.SetTextSize(xy(.8,.8)); label.SetTextThickness(k.FromMM(.12)); label.SetLayer(k.F_SilkS); b.Add(label)
     path=out/'custom-breakout.kicad_pcb'; k.SaveBoard(str(path),b)
+    # Ensure a footprint library table exists so kicad-cli can resolve footprints.
+    fp_lib_table=out/'fp-lib-table'
+    if not fp_lib_table.exists():
+        kicad_mod_dir=os.environ.get('KICAD_MOD_PATH','')
+        if not kicad_mod_dir:
+            for candidate in ['/usr/share/kicad/mod', '/usr/share/kicad/modules']:
+                if os.path.isdir(candidate):
+                    kicad_mod_dir=candidate; break
+        if kicad_mod_dir:
+            fp_lib_table.write_text(f'(fp_lib_table (version 7)(libs (lib (name KiCad)(type KiCad)(uri "{kicad_mod_dir}")(options "")(descr ""))))\n')
     commands=[['pcb','drc','--format','json','-o',str(out/'drc.json'),str(path)],['pcb','export','gerbers','-o',str(out/'gerbers')+'/',str(path)],['pcb','export','drill','-o',str(out/'gerbers')+'/',str(path)],['pcb','export','svg','--layers','F.Cu,F.SilkS,Edge.Cuts','--page-size-mode','2','--mode-single','-o',str(out/'board.svg'),str(path)]]
     for args in commands:
-        subprocess.run(['kicad-cli',*args],check=True,capture_output=True,timeout=45)
+        r=subprocess.run(['kicad-cli',*args],capture_output=True,text=True,timeout=45)
+        if r.returncode!=0:
+            raise subprocess.CalledProcessError(r.returncode,r.args,f"kicad-cli stderr: {r.stderr}\nstdout: {r.stdout}")
     saved = k.LoadBoard(str(path))
     pads = [pad for fp in saved.GetFootprints() if fp.GetReference() in ['J1','J2'] for pad in fp.Pads()]
     tracks = list(saved.GetTracks())

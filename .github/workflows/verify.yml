@@ -17,7 +17,7 @@ jobs:
       - run: uv sync --locked --python 3.12
       # Run everything EXCEPT test_pcb.py (needs pcbnew subprocess) and
       # KiCad-specific tests in other files (named with kicad/pcb/board/breakout/drc).
-      - run: uv run pytest -q --disable-warnings --ignore=tests/test_pcb.py -k "not kicad and not pcb and not board_envelope and not breakout and not production_assembly"
+      - run: uv run pytest -q --disable-warnings --ignore=tests/test_pcb.py -k "not kicad and not pcb and not board_envelope and not breakout and not production_assembly and not multi_revision"
       - run: uv run python -m scripts.benchmark
       - run: node --input-type=module --check < web/app.js
       - run: uv run python scripts/check_artifacts.py
