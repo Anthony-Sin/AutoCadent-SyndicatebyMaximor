@@ -70,8 +70,7 @@ def generate(spec, out):
     opts.SetFormat(k.PLOT_FORMAT_GERBER)
     opts.SetUseGerberAttributes(True)
     opts.SetPlotFrameRef(False)
-    pc=k.PLOT_CONTROLLER(saved)
-    pc.SetPlotParams(opts)
+    pc=k.PLOT_CONTROLLER(saved,opts)
     for layer_id,layer_name in [(k.F_Cu,'F.Cu'),(k.F_SilkS,'F.SilkS'),(k.Edge_Cuts,'Edge.Cuts')]:
         pc.SetLayer(layer_id)
         pc.OpenPlotfile(layer_name,False,f'{layer_name}.gbr')
