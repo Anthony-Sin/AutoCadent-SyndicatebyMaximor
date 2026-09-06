@@ -22,18 +22,18 @@ jobs:
           if [ -z "$PCBNEW_DIR" ]; then
             PCBNEW_DIR=$(find /usr/lib -path '*/pcbnew*' -exec dirname {} \; 2>/dev/null | sort -u | head -1)
           fi
-          echo "PCBNEW_DIR=$PCBNEW_DIR"
+          echo "PCBNEW_DIR=$PCBNEW_DIR" >> $GITHUB_ENV
           echo "AUTOCADENT_KICAD_PYTHON=/usr/bin/python3" >> $GITHUB_ENV
-          # The KiCad PPA pins an old system typing_extensions (4.10.0) that lacks Sentinel,
-          # breaking pydantic_core. The debian package can't be uninstalled by pip (no RECORD),
-          # so use --ignore-installed to overlay a newer version in pip's site-packages.
-          sudo pip install --break-system-packages --ignore-installed 'typing_extensions>=4.12'
-          # Make pcbnew importable by /usr/bin/python3 subprocesses.
+          # NOTE: Do NOT export PYTHONPATH here — it would leak into the uv/pytest
+          # process and let old system packages (e.g. typing_extensions) shadow venv ones.
+          # Instead, test helpers pass PYTHONPATH=PCBNEW_DIR only to the /usr/bin/python3
+          # subprocess that runs model_board.py.
+          # sitecustomize.py for the pre-sync verification step only.
           if [ -n "$PCBNEW_DIR" ]; then
-            echo "PYTHONPATH=$PCBNEW_DIR" >> $GITHUB_ENV
+            SITE_DIR=$(python3 -c "import site; print([p for p in site.getsitepackages() if 'dist-packages' in p][0])")
+            printf 'import sys\nsys.path.insert(0, "%s")\n' "$PCBNEW_DIR" | sudo tee "$SITE_DIR/sitecustomize.py"
           fi
       - run: /usr/bin/python3 -c "import pcbnew; print('pcbnew OK:', pcbnew.__file__)"
-      - run: /usr/bin/python3 -c "import typing_extensions; print('typing_extensions OK:', typing_extensions.__version__)"
       - run: uv sync --locked --python 3.12
       - run: uv run pytest -q --disable-warnings
       - run: uv run python -m scripts.benchmark

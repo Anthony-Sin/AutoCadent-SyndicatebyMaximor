@@ -600,7 +600,10 @@ class TestKiCadPCBCompilerAdversarialEdgeCases:
         spec_path.write_text(json.dumps(spec))
 
         cmd = [KICAD_PYTHON, str(MODEL_BOARD_SCRIPT), "--spec", str(spec_path), "--output", str(out)]
-        kicad_env = {k: v for k, v in os.environ.items() if k != "PYTHONHOME"}
+        kicad_env = {k: v for k, v in os.environ.items() if k not in ("PYTHONHOME", "PYTHONPATH")}
+        _pcbnew = os.environ.get("PCBNEW_DIR", "")
+        if _pcbnew:
+            kicad_env["PYTHONPATH"] = _pcbnew
         res = subprocess.run(cmd, capture_output=True, text=True, timeout=90, env=kicad_env)
         assert res.returncode == 0, f"KiCad compilation failed on {combo_name}: {res.stderr}"
 
@@ -621,7 +624,10 @@ class TestKiCadPCBCompilerAdversarialEdgeCases:
         """Empirically verifies SWIG iterator next patch and p.GetParentFootprint().GetReference()."""
         spec = {"kind": "signal_breakout", "nets": ["VCC", "GND", "SIG"], "connector_spacing": 25.0, "trace_width": 0.4}
         (tmp_path / "pcb-spec.json").write_text(json.dumps(spec))
-        kicad_env = {k: v for k, v in os.environ.items() if k != "PYTHONHOME"}
+        kicad_env = {k: v for k, v in os.environ.items() if k not in ("PYTHONHOME", "PYTHONPATH")}
+        _pcbnew = os.environ.get("PCBNEW_DIR", "")
+        if _pcbnew:
+            kicad_env["PYTHONPATH"] = _pcbnew
         subprocess.run([KICAD_PYTHON, str(MODEL_BOARD_SCRIPT), "--spec", str(tmp_path / "pcb-spec.json"), "--output", str(tmp_path)], check=True, env=kicad_env)
 
         verify_script = f"""
