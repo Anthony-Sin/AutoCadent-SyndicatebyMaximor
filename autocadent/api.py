@@ -16,6 +16,8 @@ from .cad import Spec
 from .pipeline import run, save_json
 from .provider import ProviderConfig, ProviderError, Tensormux
 from .model_pipeline import run_model, CompilerError
+from .memory import MemoryStore
+from .agents import SubAgentGraph
 
 ROOT=Path(__file__).resolve().parents[1]
 JOBS=ROOT/'.runs/jobs'; JOBS.mkdir(parents=True,exist_ok=True)
@@ -143,6 +145,36 @@ def get_job(job_id: str):
         result=json.loads((folder/'report.json').read_text())
         return {'id':job_id,'status':'complete','report':result}
     return {'id':job_id,'status':'running','message':'AO worker dispatched; waiting for measured result.' if (folder/'dispatch.json').exists() else 'Building CAD and evaluating constraints…'}
+
+_LEARNING_DB = ROOT / '.runs' / 'learning.db'
+_LEARNING_STORE = MemoryStore(db_path=str(_LEARNING_DB))
+_AGENT_GRAPH = SubAgentGraph()
+
+@app.get('/api/learning/telemetry')
+def learning_telemetry():
+    import sqlite3
+    conn = _LEARNING_STORE._connect()
+    try:
+        episodes = []
+        for row in conn.execute(
+            "SELECT episode_id, revision, status, summary, metrics_json FROM episodes ORDER BY revision"
+        ):
+            metrics = json.loads(row[4])
+            episodes.append({"episode_id": row[0], "revision": row[1], "status": row[2],
+                             "summary": row[3], **metrics})
+        return episodes
+    finally:
+        conn.close()
+
+@app.get('/api/learning/memory')
+def learning_memory():
+    rules = _LEARNING_STORE.get_active_heuristics()
+    return [{"rule_id": r.rule_id, "category": r.category, "trigger_pattern": r.trigger_pattern,
+             "parameter_override": r.parameter_override, "rationale": r.rationale} for r in rules]
+
+@app.get('/api/agents/graph')
+def agents_graph():
+    return _AGENT_GRAPH.get_state()
 
 # Job artifacts are shareable by opaque UUID. Do not put secrets in briefs.
 # Private hosted deployments should enforce auth at the reverse proxy for all paths.
