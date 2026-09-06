@@ -3,6 +3,7 @@ No user code is loaded; inputs must match the server's fixed data-only schema.
 """
 import argparse
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -51,10 +52,55 @@ def generate(spec, out):
         pad=k.PAD(fp); pad.SetNumber(''); pad.SetAttribute(k.PAD_ATTRIB_NPTH); pad.SetShape(k.PAD_SHAPE_CIRCLE); pad.SetSize(xy(3.2,3.2)); pad.SetDrillSize(xy(3.2,3.2)); pad.SetLayerSet(k.LSET.AllCuMask()); pad.SetPosition(xy(x,y)); fp.Add(pad); b.Add(fp)
     label=k.PCB_TEXT(b); label.SetText('AUTOCADENT / SIGNAL BREAKOUT'); label.SetPosition(xy(130,135)); label.SetTextSize(xy(.8,.8)); label.SetTextThickness(k.FromMM(.12)); label.SetLayer(k.F_SilkS); b.Add(label)
     path=out/'custom-breakout.kicad_pcb'; k.SaveBoard(str(path),b)
-    commands=[['pcb','drc','--format','json','-o',str(out/'drc.json'),str(path)],['pcb','export','gerbers','-o',str(out/'gerbers')+'/',str(path)],['pcb','export','drill','-o',str(out/'gerbers')+'/',str(path)],['pcb','export','svg','--layers','F.Cu,F.SilkS,Edge.Cuts','--page-size-mode','2','--mode-single','-o',str(out/'board.svg'),str(path)]]
+    # Ensure a footprint library table exists so kicad-cli can resolve footprints.
+    fp_lib_table=out/'fp-lib-table'
+    if not fp_lib_table.exists():
+        kicad_mod_dir=os.environ.get('KICAD_MOD_PATH','')
+        if not kicad_mod_dir:
+            for candidate in ['/usr/share/kicad/mod', '/usr/share/kicad/modules']:
+                if os.path.isdir(candidate):
+                    kicad_mod_dir=candidate; break
+        if kicad_mod_dir:
+            fp_lib_table.write_text(f'(fp_lib_table (version 7)(libs (lib (name KiCad)(type KiCad)(uri "{kicad_mod_dir}")(options "")(descr ""))))\n')
+    gerber_dir=out/'gerbers'; gerber_dir.mkdir(parents=True,exist_ok=True)
+    # Native pcbnew gerber/drill export — defensive across KiCad API versions.
+    saved=k.LoadBoard(str(path))
+    pc=k.PLOT_CONTROLLER(saved)
+    # Configure plot params via the controller's own options.
+    p=pc.GetPlotOptions()
+    for attr,val in [('SetOutputDirectory',str(gerber_dir)),('SetFormat',k.PLOT_FORMAT_GERBER),('SetUseGerberAttributes',True),('SetPlotFrameRef',False)]:
+        fn=getattr(p,attr,None)
+        if fn: fn(val)
+    for layer_id,layer_name in [(k.F_Cu,'F.Cu'),(k.F_SilkS,'F.SilkS'),(k.Edge_Cuts,'Edge.Cuts')]:
+        pc.SetLayer(layer_id)
+        pc.OpenPlotfile(layer_name,False,layer_name)
+        pc.PlotLayer()
+        pc.ClosePlot()
+    del pc
+    # Excellon drill — CreateDrillandMapFilesSet(outDir, genDrill, genMap)
+    try:
+        ew=k.EXCELLON_WRITER(saved)
+        fmt_fn=getattr(ew,'SetFormat',None)
+        if fmt_fn: fmt_fn(True)
+        opt_fn=getattr(ew,'SetOptions',None)
+        if opt_fn: opt_fn(False,False,k.VECTOR2I(0,0),False)
+        for method_name in ['CreateDrillandMapFilesSet','CreateDrillAndMapFilesSet']:
+            fn=getattr(ew,method_name,None)
+            if fn:
+                try:
+                    fn(str(gerber_dir),True,False)
+                    break
+                except Exception:
+                    continue
+        del ew
+    except Exception:
+        pass
+    # DRC, drill, and SVG via kicad-cli
+    commands=[['pcb','drc','--format','json','-o',str(out/'drc.json'),str(path)],['pcb','export','drill','-o',str(gerber_dir)+'/',str(path)],['pcb','export','svg','--layers','F.Cu,F.SilkS,Edge.Cuts','--page-size-mode','2','-o',str(out/'board.svg'),str(path)]]
     for args in commands:
-        subprocess.run(['kicad-cli',*args],check=True,capture_output=True,timeout=45)
-    saved = k.LoadBoard(str(path))
+        r=subprocess.run(['kicad-cli',*args],capture_output=True,text=True,timeout=45)
+        if r.returncode!=0:
+            raise RuntimeError(f"kicad-cli {' '.join(args)} failed (exit {r.returncode}):\nstderr: {r.stderr}\nstdout: {r.stdout}")
     pads = [pad for fp in saved.GetFootprints() if fp.GetReference() in ['J1','J2'] for pad in fp.Pads()]
     tracks = list(saved.GetTracks())
     actual_nets = [{'name':name,'pins':sorted(f'{p.GetParentFootprint().GetReference()}.{p.GetNumber()}' for p in pads if p.GetNetname()==name)} for name in names]

@@ -5,14 +5,57 @@ on:
 permissions:
   contents: read
 jobs:
-  test:
+  fast:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
       - run: sudo apt-get update && sudo apt-get install -y libgl1 libglu1-mesa
+      - run: uv sync --locked --python 3.12
+      # Run everything EXCEPT test_pcb.py (needs pcbnew subprocess) and
+      # KiCad-specific tests in other files (named with kicad/pcb/board/breakout/drc).
+      - run: uv run pytest -q --disable-warnings --ignore=tests/test_pcb.py -k "not kicad and not pcb and not board_envelope and not breakout and not production_assembly and not multi_revision"
+      - run: uv run python -m scripts.benchmark
+      - run: node --input-type=module --check < web/app.js
+      - run: uv run python scripts/check_artifacts.py
+
+  kicad:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: sudo apt-get update && sudo apt-get install -y libgl1 libglu1-mesa xvfb
+      - name: Install KiCad for pcbnew
+        run: |
+          sudo add-apt-repository -y ppa:kicad/kicad-8.0-releases
+          sudo apt-get update
+          sudo apt-get install -y kicad
+          PCBNEW_DIR=$(find /usr/lib/python3* /usr/lib/kicad -name 'pcbnew*' -exec dirname {} \; 2>/dev/null | sort -u | head -1)
+          if [ -z "$PCBNEW_DIR" ]; then
+            PCBNEW_DIR=$(find /usr/lib -path '*/pcbnew*' -exec dirname {} \; 2>/dev/null | sort -u | head -1)
+          fi
+          echo "PCBNEW_DIR=$PCBNEW_DIR" >> $GITHUB_ENV
+          echo "AUTOCADENT_KICAD_PYTHON=/usr/bin/python3" >> $GITHUB_ENV
+          # NOTE: Do NOT export PYTHONPATH here — it would leak into the uv/pytest
+          # process and let old system packages (e.g. typing_extensions) shadow venv ones.
+          # Instead, test helpers pass PYTHONPATH=PCBNEW_DIR only to the /usr/bin/python3
+          # subprocess that runs model_board.py.
+          # sitecustomize.py for the pre-sync verification step only.
+          if [ -n "$PCBNEW_DIR" ]; then
+            SITE_DIR=$(python3 -c "import site; print([p for p in site.getsitepackages() if 'dist-packages' in p][0])")
+            printf 'import sys\nsys.path.insert(0, "%s")\n' "$PCBNEW_DIR" | sudo tee "$SITE_DIR/sitecustomize.py"
+          fi
+      - name: Start virtual display for KiCad/wxWidgets
+        run: |
+          Xvfb :99 -screen 0 1920x1080x24 &
+          echo "DISPLAY=:99" >> $GITHUB_ENV
+      - run: /usr/bin/python3 -c "import pcbnew; print('pcbnew OK:', pcbnew.__file__)"
       - run: uv sync --locked --python 3.12
       - run: uv run pytest -q --disable-warnings
       - run: uv run python -m scripts.benchmark

@@ -16,6 +16,8 @@ from .cad import Spec
 from .pipeline import run, save_json
 from .provider import ProviderConfig, ProviderError, Tensormux
 from .model_pipeline import run_model, CompilerError
+from .memory import MemoryStore
+from .agents import SubAgentGraph
 
 ROOT=Path(__file__).resolve().parents[1]
 JOBS=ROOT/'.runs/jobs'; JOBS.mkdir(parents=True,exist_ok=True)
@@ -143,6 +145,132 @@ def get_job(job_id: str):
         result=json.loads((folder/'report.json').read_text())
         return {'id':job_id,'status':'complete','report':result}
     return {'id':job_id,'status':'running','message':'AO worker dispatched; waiting for measured result.' if (folder/'dispatch.json').exists() else 'Building CAD and evaluating constraints…'}
+
+_LEARNING_DB = ROOT / '.runs' / 'learning.db'
+_LEARNING_STORE = MemoryStore(db_path=str(_LEARNING_DB))
+_AGENT_GRAPH = SubAgentGraph()
+
+@app.get('/api/learning/telemetry')
+def learning_telemetry():
+    import sqlite3
+    conn = _LEARNING_STORE._connect()
+    try:
+        episodes = []
+        for row in conn.execute(
+            "SELECT episode_id, revision, status, summary, metrics_json FROM episodes ORDER BY revision"
+        ):
+            metrics = json.loads(row[4])
+            episodes.append({"episode_id": row[0], "revision": row[1], "status": row[2],
+                             "summary": row[3], **metrics})
+        return episodes
+    finally:
+        conn.close()
+
+@app.get('/api/learning/memory')
+def learning_memory():
+    rules = _LEARNING_STORE.get_active_heuristics()
+    return [{"rule_id": r.rule_id, "category": r.category, "trigger_pattern": r.trigger_pattern,
+             "parameter_override": r.parameter_override, "rationale": r.rationale,
+             "confidence": r.confidence, "times_applied": r.times_applied,
+             "times_helped": r.times_helped, "times_hurt": r.times_hurt,
+             "evidence": r.evidence} for r in rules]
+
+@app.get('/api/agents/graph')
+def agents_graph():
+    return _AGENT_GRAPH.get_state()
+
+
+class ChatRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    message: str = Field(min_length=1, max_length=2000)
+    session: str | None = None
+
+
+@app.post('/api/agent/chat')
+def agent_chat(req: ChatRequest):
+    msg = req.message.lower()
+    store = _LEARNING_STORE
+    cards = []
+    chips = []
+    citations = []
+    reply_parts = []
+
+    rules = store.get_active_heuristics()
+    stats = store.get_memory_stats()
+
+    if any(w in msg for w in ["rule", "heuristic", "memory", "learned", "learn"]):
+        for r in rules[:5]:
+            cards.append({"type": "rule", "payload": {
+                "rule_id": r.rule_id, "category": r.category,
+                "trigger_pattern": r.trigger_pattern,
+                "parameter_override": r.parameter_override,
+                "confidence": r.confidence, "rationale": r.rationale,
+            }})
+            citations.append({"kind": "rule", "id": r.rule_id})
+        reply_parts.append(f"There are {stats['active_rules']} active learned rules in memory.")
+        chips.extend(["Show all rules", "Rule confidence", "Pruning status"])
+
+    if any(w in msg for w in ["telemetry", "episode", "revision", "history", "run"]):
+        import sqlite3
+        conn = store._connect()
+        try:
+            episodes = []
+            for row in conn.execute(
+                "SELECT episode_id, revision, status, summary, metrics_json FROM episodes ORDER BY revision DESC LIMIT 10"
+            ):
+                metrics = json.loads(row[4])
+                episodes.append({"episode_id": row[0], "revision": row[1], "status": row[2],
+                                 "summary": row[3], **metrics})
+        finally:
+            conn.close()
+        for ep in episodes[:3]:
+            cards.append({"type": "episode", "payload": ep})
+            citations.append({"kind": "episode", "id": ep["episode_id"]})
+        reply_parts.append(f"Found {len(episodes)} episodes in telemetry.")
+        chips.extend(["Latest revision", "Token trend", "Failure history"])
+
+    if any(w in msg for w in ["agent", "graph", "sub-agent", "orchestrator", "pipeline"]):
+        graph_state = _AGENT_GRAPH.get_state()
+        cards.append({"type": "graph", "payload": graph_state})
+        reply_parts.append(f"The agent graph has {len(graph_state.get('agents', []))} roles.")
+        chips.extend(["Agent status", "Transition log"])
+
+    if any(w in msg for w in ["curve", "learning", "improvement", "trend", "pass rate"]):
+        import sqlite3
+        conn = store._connect()
+        try:
+            rows = conn.execute(
+                "SELECT revision, metrics_json FROM episodes ORDER BY revision"
+            ).fetchall()
+            curve_data = []
+            for row in rows:
+                m = json.loads(row[1])
+                curve_data.append({"revision": row[0],
+                                   "checks_passed": m.get("checks_passed", 0),
+                                   "checks_total": m.get("checks_total", 0),
+                                   "duration_ms": m.get("duration_ms", 0)})
+        finally:
+            conn.close()
+        if curve_data:
+            cards.append({"type": "curves", "payload": {"points": curve_data}})
+            reply_parts.append(f"Learning curve spans {len(curve_data)} revisions.")
+            chips.extend(["Error reduction", "Duration trend"])
+
+    if any(w in msg for w in ["cache", "tool cache"]):
+        cache_stats = store.cache_stats()
+        cards.append({"type": "memory", "payload": {"cache": cache_stats}})
+        reply_parts.append(f"Tool cache: {cache_stats['entries']} entries, {cache_stats['total_hits']} hits.")
+        chips.append("Cache details")
+
+    if not cards:
+        cards.append({"type": "memory", "payload": stats})
+        reply_parts.append(f"Memory has {stats['active_rules']} rules, {stats['total_episodes']} episodes, "
+                           f"{stats['cache_entries']} cache entries.")
+        chips.extend(["Rules", "Episodes", "Cache", "Agent graph"])
+
+    reply = " ".join(reply_parts) if reply_parts else "No matching data found."
+    return {"reply": reply, "cards": cards, "chips": chips, "citations": citations}
+
 
 # Job artifacts are shareable by opaque UUID. Do not put secrets in briefs.
 # Private hosted deployments should enforce auth at the reverse proxy for all paths.

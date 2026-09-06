@@ -23,6 +23,16 @@ KICAD_PYTHON = os.getenv("AUTOCADENT_KICAD_PYTHON", "/usr/bin/python3")
 MODEL_BOARD_SCRIPT = ROOT / "scripts" / "model_board.py"
 
 
+def _kicad_env():
+    """Strip PYTHONHOME and scope PYTHONPATH to pcbnew dir only."""
+    env = {k: v for k, v in os.environ.items()
+           if k not in ("PYTHONHOME", "PYTHONPATH")}
+    pcbnew_dir = os.environ.get("PCBNEW_DIR", "")
+    if pcbnew_dir:
+        env["PYTHONPATH"] = pcbnew_dir
+    return env
+
+
 def run_model_board(spec_dict, out_dir):
     spec_path = out_dir / "pcb-spec.json"
     spec_path.write_text(json.dumps(spec_dict))
@@ -34,7 +44,7 @@ def run_model_board(spec_dict, out_dir):
         "--output",
         str(out_dir),
     ]
-    res = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    res = subprocess.run(cmd, capture_output=True, text=True, timeout=120, env=_kicad_env())
     return res
 
 
@@ -212,9 +222,9 @@ class TestKiCadBoardGeneration:
         files = list(gerber_dir.iterdir())
         file_names = [f.name for f in files]
         # Must contain copper, silk, edge cuts, and drill
-        assert any("F_Cu" in fn or "F.Cu" in fn for fn in file_names)
-        assert any("Edge_Cuts" in fn or "Edge.Cuts" in fn for fn in file_names)
-        assert any(".drl" in fn for fn in file_names)
+        assert any("F_Cu" in fn or "F.Cu" in fn for fn in file_names), f"No F_Cu file in {file_names}"
+        assert any("Edge_Cuts" in fn or "Edge.Cuts" in fn for fn in file_names), f"No Edge_Cuts file in {file_names}"
+        assert any(".drl" in fn for fn in file_names), f"No .drl file in {file_names}"
 
     def test_bom_csv_contents(self, standard_board):
         bom_file = standard_board["dir"] / "bom.csv"
@@ -255,7 +265,7 @@ it.__class__.next = it.__class__.__next__
 assert hasattr(it, 'next')
 print('SWIG iterator next verified')
 """
-        res = subprocess.run([KICAD_PYTHON, "-c", code], capture_output=True, text=True)
+        res = subprocess.run([KICAD_PYTHON, "-c", code], capture_output=True, text=True, env=_kicad_env())
         assert res.returncode == 0
         assert "SWIG iterator next verified" in res.stdout
 
@@ -273,7 +283,7 @@ for p in pads:
 assert refs == {{'J1', 'J2', 'H1', 'H2', 'H3', 'H4'}}
 print('Pad parent references verified:', sorted(refs))
 """
-        res = subprocess.run([KICAD_PYTHON, "-c", code], capture_output=True, text=True)
+        res = subprocess.run([KICAD_PYTHON, "-c", code], capture_output=True, text=True, env=_kicad_env())
         assert res.returncode == 0
         assert "Pad parent references verified" in res.stdout
 
