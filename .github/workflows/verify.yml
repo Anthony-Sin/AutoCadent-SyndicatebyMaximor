@@ -15,12 +15,36 @@ jobs:
           enable-cache: true
       - run: sudo apt-get update && sudo apt-get install -y libgl1 libglu1-mesa
       - run: uv sync --locked --python 3.12
-      # Run everything EXCEPT test_pcb.py (needs pcbnew subprocess) and
-      # KiCad-specific tests in other files (named with kicad/pcb/board/breakout/drc).
-      - run: uv run pytest -q --disable-warnings --ignore=tests/test_pcb.py -k "not kicad and not pcb and not board_envelope and not breakout and not production_assembly and not multi_revision"
+      - name: Run fast tests (hang-guarded)
+        env:
+          PYTEST_HANG_SECONDS: 240
+        run: uv run pytest -q --disable-warnings --ignore=tests/test_pcb.py -k "not kicad and not pcb and not board_envelope and not breakout and not production_assembly and not multi_revision and not benchmark_names"
       - run: uv run python -m scripts.benchmark
       - run: node --input-type=module --check < web/app.js
       - run: uv run python scripts/check_artifacts.py
+
+  learning:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: sudo apt-get update && sudo apt-get install -y libgl1 libglu1-mesa
+      - run: uv sync --locked --python 3.12
+      - name: Run slow learning-loop tests (hang-guarded)
+        env:
+          PYTEST_HANG_SECONDS: 1500
+        run: |
+          # Collect matching tests; skip gracefully if none exist on this branch
+          COLLECTED=$(uv run pytest --collect-only -q --disable-warnings -k "multi_revision or production_assembly or benchmark_names" 2>&1)
+          COUNT=$(echo "$COLLECTED" | grep -c "::test_" || true)
+          if [ "$COUNT" -eq 0 ]; then
+            echo "No slow learning tests found on this branch — skipping."
+            exit 0
+          fi
+          uv run pytest -q --disable-warnings -k "multi_revision or production_assembly or benchmark_names"
 
   kicad:
     runs-on: ubuntu-latest
@@ -71,7 +95,10 @@ jobs:
           echo "DISPLAY=:99" >> $GITHUB_ENV
       - run: /usr/bin/python3 -c "import pcbnew; print('pcbnew OK:', pcbnew.__file__)"
       - run: uv sync --locked --python 3.12
-      - run: uv run pytest -q --disable-warnings
+      - name: Run KiCad + full tests (hang-guarded, slow learning tests in learning job)
+        env:
+          PYTEST_HANG_SECONDS: 1500
+        run: uv run pytest -q --disable-warnings -k "not multi_revision and not production_assembly and not benchmark_names"
       - run: uv run python -m scripts.benchmark
       - run: node --input-type=module --check < web/app.js
       - run: uv run python scripts/check_artifacts.py
