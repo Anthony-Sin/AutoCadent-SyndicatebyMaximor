@@ -2806,6 +2806,34 @@ document.getElementById('explorer-close-panels')?.addEventListener('click',()=>{
  document.querySelector('.explorer-chat-layout').style.display='';
 });
 
+// ---- Explorer Mode Toggle (Sidebar/Fullscreen) ----
+const EXPLORER_MODE_KEY='autocadent.explorer.mode';
+function setExplorerMode(mode){
+ const view=document.getElementById('explorer-view');
+ if(!view)return;
+ view.classList.remove('mode-fullscreen','mode-sidebar');
+ view.classList.add('mode-'+mode);
+ document.getElementById('explorer-sidebar-btn')?.classList.toggle('active',mode==='sidebar');
+ document.getElementById('explorer-fullscreen-btn')?.classList.toggle('active',mode==='fullscreen');
+ try{localStorage.setItem(EXPLORER_MODE_KEY,mode)}catch{}
+}
+function getExplorerMode(){
+ try{return localStorage.getItem(EXPLORER_MODE_KEY)||'fullscreen'}catch{return'fullscreen'}
+}
+document.getElementById('explorer-sidebar-btn')?.addEventListener('click',()=>setExplorerMode('sidebar'));
+document.getElementById('explorer-fullscreen-btn')?.addEventListener('click',()=>setExplorerMode('fullscreen'));
+document.addEventListener('keydown',e=>{
+ if(e.key==='F11'&&document.getElementById('explorer-view')&&!document.getElementById('explorer-view').hidden){
+  e.preventDefault();
+  const current=getExplorerMode();
+  setExplorerMode(current==='fullscreen'?'sidebar':'fullscreen');
+ }
+});
+// Initialize mode on page load
+if(document.getElementById('explorer-view')){
+ setExplorerMode(getExplorerMode());
+}
+
 // ---- Sub-Agent Execution Graph (full panel) ----
 const AGENT_ROLES=[
  {id:'orchestrator',label:'Orchestrator / Planner',color:'#287e77',tier:0},

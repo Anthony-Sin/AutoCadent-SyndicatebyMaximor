@@ -415,6 +415,38 @@ dialog .dark-button:hover{background:var(--teal-dark)}
 .resize-handle{cursor:ew-resize;position:relative;min-height:0}
 .resize-handle:after{content:'';position:absolute;inset:0 2px;background:transparent;border-radius:2px;transition:background .2s}
 .resize-handle:hover:after,.resize-handle.dragging:after{background:#2b7f7140}
+/* ---- Explorer Two-Mode Layout (Sidebar + Fullscreen) ---- */
+.explorer-mode-toggle{position:fixed;top:68px;right:24px;z-index:10;display:flex;gap:4px;background:#fffef8;border:1px solid var(--line);border-radius:8px;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.mode-btn{background:none;border:none;cursor:pointer;font-size:16px;padding:6px 10px;border-radius:6px;color:var(--muted);transition:all .2s ease}
+.mode-btn:hover{background:#f0eee5;color:var(--ink)}
+.mode-btn.active{background:var(--teal);color:#fff}
+
+/* Fullscreen mode (default) */
+.explorer-view.mode-fullscreen .explorer-chat-layout{max-width:1200px;margin:0 auto;padding:48px 64px}
+.explorer-view.mode-fullscreen .explorer-chat-header h1{font-size:42px}
+.explorer-view.mode-fullscreen .chat-bubble{font-size:15px;max-width:800px}
+.explorer-view.mode-fullscreen .chat-card-expanded{padding:16px}
+
+/* Sidebar mode */
+.explorer-view.mode-sidebar{position:fixed;top:56px;right:0;bottom:0;width:50vw;z-index:100;background:var(--paper);border-left:2px solid var(--line);box-shadow:-4px 0 24px rgba(0,0,0,.12);transform:translateX(0);transition:transform .3s cubic-bezier(.4,0,.2,1)}
+.explorer-view.mode-sidebar .explorer-chat-layout{padding:24px 28px;height:100%;overflow-y:auto}
+.explorer-view.mode-sidebar .explorer-chat-header h1{font-size:24px}
+.explorer-view.mode-sidebar .chat-bubble{font-size:13px}
+.explorer-view.mode-sidebar .chat-card{margin:6px 0}
+.explorer-view.mode-sidebar .chat-card-expanded{padding:8px 10px}
+.explorer-view.mode-sidebar .learning-charts{grid-template-columns:1fr}
+.explorer-view.mode-sidebar .comparison-grid{grid-template-columns:1fr 1fr}
+
+/* Transition animation */
+.explorer-view.transitioning{transition:all .3s cubic-bezier(.4,0,.2,1)}
+.explorer-view.mode-sidebar.entering{transform:translateX(100%)}
+.explorer-view.mode-sidebar.entering.active{transform:translateX(0)}
+
+/* Reduced motion */
+@media(prefers-reduced-motion:reduce){
+ .explorer-view.mode-sidebar,.explorer-view.transitioning,.mode-btn{transition:none}
+}
+
 /* ---- Explorer Chat (R3: Conversational Agent Intelligence) ---- */
 .explorer-view{position:relative;z-index:1;width:100%!important;max-width:none!important;margin:0!important;padding:0!important;min-height:0;overflow:hidden;background:none;display:flex;flex-direction:column}
 .explorer-chat-layout{display:flex;flex-direction:column;height:100%;overflow:hidden}
