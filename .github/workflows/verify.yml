@@ -31,7 +31,46 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
-      - run: sudo apt-get update && sudo apt-get install -y libgl1 libglu1-mesa
+      - run: sudo apt-get update && sudo apt-get install -y libgl1 libglu1-mesa xvfb
+      - name: Install KiCad for pcbnew
+        run: |
+          # Retry PPA addition — Launchpad API occasionally returns 504 Gateway Timeout
+          for i in 1 2 3; do
+            echo "Attempt $i to add KiCad PPA..."
+            if sudo add-apt-repository -y ppa:kicad/kicad-8.0-releases; then
+              echo "PPA added successfully"
+              break
+            fi
+            if [ $i -lt 3 ]; then
+              echo "PPA addition failed, retrying in 10s..."
+              sleep 10
+            else
+              echo "Failed to add PPA after 3 attempts"
+              exit 1
+            fi
+          done
+          sudo apt-get update
+          sudo apt-get install -y kicad
+          PCBNEW_DIR=$(find /usr/lib/python3* /usr/lib/kicad -name 'pcbnew*' -exec dirname {} \; 2>/dev/null | sort -u | head -1)
+          if [ -z "$PCBNEW_DIR" ]; then
+            PCBNEW_DIR=$(find /usr/lib -path '*/pcbnew*' -exec dirname {} \; 2>/dev/null | sort -u | head -1)
+          fi
+          echo "PCBNEW_DIR=$PCBNEW_DIR" >> $GITHUB_ENV
+          echo "AUTOCADENT_KICAD_PYTHON=/usr/bin/python3" >> $GITHUB_ENV
+          # NOTE: Do NOT export PYTHONPATH here — it would leak into the uv/pytest
+          # process and let old system packages (e.g. typing_extensions) shadow venv ones.
+          # Instead, test helpers pass PYTHONPATH=PCBNEW_DIR only to the /usr/bin/python3
+          # subprocess that runs model_board.py.
+          # sitecustomize.py for the pre-sync verification step only.
+          if [ -n "$PCBNEW_DIR" ]; then
+            SITE_DIR=$(python3 -c "import site; print([p for p in site.getsitepackages() if 'dist-packages' in p][0])")
+            printf 'import sys\nsys.path.insert(0, "%s")\n' "$PCBNEW_DIR" | sudo tee "$SITE_DIR/sitecustomize.py"
+          fi
+      - name: Start virtual display for KiCad/wxWidgets
+        run: |
+          Xvfb :99 -screen 0 1920x1080x24 &
+          echo "DISPLAY=:99" >> $GITHUB_ENV
+      - run: /usr/bin/python3 -c "import pcbnew; print('pcbnew OK:', pcbnew.__file__)"
       - run: uv sync --locked --python 3.12
       - name: Run slow learning-loop tests (hang-guarded)
         env:
