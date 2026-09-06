@@ -144,6 +144,40 @@ def get_job(job_id: str):
         return {'id':job_id,'status':'complete','report':result}
     return {'id':job_id,'status':'running','message':'AO worker dispatched; waiting for measured result.' if (folder/'dispatch.json').exists() else 'Building CAD and evaluating constraints…'}
 
+@app.get('/api/learning/telemetry')
+def learning_telemetry():
+    import tempfile, json as _json
+    from .memory import MemoryStore
+    db = ROOT / '.runs' / 'learning.db'
+    if not db.exists():
+        return []
+    store = MemoryStore(db_path=str(db))
+    tel_path = ROOT / '.runs' / 'learning_telemetry.json'
+    bank_path = ROOT / '.runs' / 'learning_bank.json'
+    store.export_json(str(tel_path), str(bank_path))
+    return _json.loads(tel_path.read_text())
+
+
+@app.get('/api/learning/memory')
+def learning_memory():
+    import json as _json
+    from .memory import MemoryStore
+    db = ROOT / '.runs' / 'learning.db'
+    if not db.exists():
+        return []
+    store = MemoryStore(db_path=str(db))
+    rules = store.get_active_heuristics()
+    return [{"rule_id": r.rule_id, "category": r.category, "trigger_pattern": r.trigger_pattern,
+             "parameter_override": r.parameter_override, "rationale": r.rationale} for r in rules]
+
+
+@app.get('/api/agents/graph')
+def agents_graph():
+    from .agents import SubAgentGraph
+    graph = SubAgentGraph()
+    return graph.get_state()
+
+
 # Job artifacts are shareable by opaque UUID. Do not put secrets in briefs.
 # Private hosted deployments should enforce auth at the reverse proxy for all paths.
 app.mount('/artifacts/jobs',StaticFiles(directory=JOBS),name='jobs')
