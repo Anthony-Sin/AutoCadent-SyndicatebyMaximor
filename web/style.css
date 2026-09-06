@@ -415,11 +415,54 @@ dialog .dark-button:hover{background:var(--teal-dark)}
 .resize-handle{cursor:ew-resize;position:relative;min-height:0}
 .resize-handle:after{content:'';position:absolute;inset:0 2px;background:transparent;border-radius:2px;transition:background .2s}
 .resize-handle:hover:after,.resize-handle.dragging:after{background:#2b7f7140}
-/* ---- Explorer Dashboard (R3: Agent Intelligence) ---- */
-.explorer-view{position:relative;z-index:1;width:100%!important;max-width:none!important;margin:0!important;padding:36px 48px!important;min-height:0;overflow-y:auto;background:none}
-.explorer-header{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;margin-bottom:28px}
-.explorer-header h1{font-size:34px;font-weight:550;letter-spacing:-1.2px;margin:8px 0;color:var(--ink)}
-.explorer-header p{font-size:13px;color:#6b7367;margin:0;max-width:520px}
+/* ---- Explorer Chat (R3: Conversational Agent Intelligence) ---- */
+.explorer-view{position:relative;z-index:1;width:100%!important;max-width:none!important;margin:0!important;padding:0!important;min-height:0;overflow:hidden;background:none;display:flex;flex-direction:column}
+.explorer-chat-layout{display:flex;flex-direction:column;height:100%;overflow:hidden}
+.explorer-chat-header{padding:28px 48px 16px;flex-shrink:0;background-image:radial-gradient(#c6c8b8 1px,transparent 1px);background-size:20px 20px}
+.explorer-chat-header h1{font-size:30px;font-weight:550;letter-spacing:-1.2px;margin:6px 0;color:var(--ink)}
+.explorer-chat-header p{font-size:12px;color:#6b7367;margin:0}
+.explorer-chat-spine{flex:1;overflow-y:auto;padding:16px 48px;display:flex;flex-direction:column;gap:16px}
+.explorer-chat-composer{flex-shrink:0;border-top:1px solid var(--line);padding:12px 48px 16px;background:#faf9f4}
+.explorer-chat-composer textarea{width:100%;border:1px solid #d5d5c8;border-radius:8px;padding:10px 12px;font:13px var(--sans);resize:none;background:#fffef8;color:var(--ink);outline:none}
+.explorer-chat-composer textarea:focus{border-color:var(--teal)}
+.explorer-composer-bottom{display:flex;justify-content:space-between;align-items:center;margin-top:6px}
+.explorer-composer-bottom button{background:var(--teal);color:white;border-radius:6px;width:30px;height:30px;font-size:16px;display:grid;place-items:center;border:none;cursor:pointer}
+.explorer-composer-bottom button:hover{background:var(--teal-dark)}
+.explorer-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.explorer-chip{font:10px var(--mono);border:1px solid #d5d2c4;border-radius:16px;padding:5px 12px;color:#656d60;background:#faf9f4;cursor:pointer;transition:all .15s}
+.explorer-chip:hover{border-color:var(--teal);color:var(--teal);background:#f0faf7}
+
+/* Chat messages */
+.chat-message{display:flex;gap:10px;align-items:flex-start}
+.chat-message.user{flex-direction:row-reverse}
+.chat-avatar{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;flex-shrink:0}
+.agent-avatar{background:var(--teal);color:#fff}
+.user-avatar{background:#d8d6c8;color:var(--ink)}
+.chat-bubble{max-width:680px;background:#fffef8;border:1px solid #e8e5db;border-radius:10px;padding:12px 16px;font-size:13px;line-height:1.6;color:var(--ink)}
+.chat-message.user .chat-bubble{background:#eef5f2;border-color:#d5e3dc}
+.chat-bubble p{margin:0 0 8px}
+.chat-bubble p:last-child{margin-bottom:0}
+.chat-cards{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.chat-card{border:1px solid #e2dfd4;border-radius:8px;overflow:hidden;background:#faf9f4}
+.chat-card.expanded{border-color:#c8d5c4}
+.chat-card-head{display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:default;font-size:12px;font-weight:500}
+.chat-card-icon{font-size:14px;color:var(--teal)}
+.chat-card-toggle{margin-left:auto;font:10px var(--mono);color:var(--teal);background:none;border:none;cursor:pointer;padding:2px 6px;border-radius:4px}
+.chat-card-toggle:hover{background:#eef5f2}
+.chat-card-expanded{padding:10px 12px;border-top:1px solid #eceae0;background:#f6f3eb}
+.chat-inline-canvas{width:100%;display:block;border-radius:4px}
+.chat-charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.chat-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chat-citations{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chat-citation{font:9px var(--mono);color:var(--muted);background:#f0eee5;padding:2px 8px;border-radius:3px;border:1px solid #e2dfd4}
+
+/* Full panels overlay */
+.explorer-full-panels{position:absolute;inset:0;z-index:5;background:var(--paper);overflow-y:auto;padding:24px 48px}
+.explorer-close-panels{position:fixed;top:68px;right:24px;z-index:6;font:11px var(--mono);border:1px solid var(--line);border-radius:6px;padding:6px 14px;background:#fffef8;cursor:pointer;color:var(--ink)}
+.explorer-close-panels:hover{border-color:var(--teal);color:var(--teal)}
+.explorer-full-panels .explorer-panel{margin-bottom:20px}
+
+/* Existing panel styles (kept for full-panel view) */
 .outline-button{font:11px var(--mono);border:1px solid var(--line);border-radius:6px;padding:8px 14px;color:var(--ink);background:#fffef8;cursor:pointer;transition:all .15s;white-space:nowrap}
 .outline-button:hover{border-color:var(--teal);color:var(--teal);background:#f4faf8}
 .explorer-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;width:100%}

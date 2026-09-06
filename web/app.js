@@ -2530,9 +2530,11 @@ window.addEventListener('keydown',e=>{
  }
 });
 
-// ---- Explorer Dashboard: Agent Graph, Learning Curves, Memory Bank (R3) ----
-let explorerTelemetry=null, explorerMemory=null, explorerGraph=null;
-let explorerFetched=false;
+// ---- Explorer Chat: Conversational Agent Intelligence (R3) ----
+var explorerTelemetry=null, explorerMemory=null, explorerGraph=null;
+var explorerFetched=false;
+var explorerChatMessages=[];
+var explorerChatBusy=false;
 
 async function fetchExplorerData(){
  const safeFetch=async(url)=>{try{const r=await fetch(url);if(!r.ok)return null;return await r.json()}catch{return null}};
@@ -2541,13 +2543,270 @@ async function fetchExplorerData(){
 }
 
 function renderExplorer(){
- if(!explorerFetched)fetchExplorerData().then(()=>renderExplorer());
- renderAgentGraph();
- renderLearningCurves();
- renderMemoryBank();
+ if(!explorerFetched){fetchExplorerData().then(()=>renderExplorer());return}
+ if(!explorerChatMessages.length)buildInitialChat();
+ renderChatSpine();
+ renderDefaultChips();
 }
 
-// ---- Sub-Agent Execution Graph ----
+function buildInitialChat(){
+ explorerChatMessages=[];
+ const iterations=report?.iterations||[];
+ const last=iterations.at(-1);
+ const events=report?.events||[];
+ const heuristics=explorerMemory?.heuristics||explorerMemory?.rules||[];
+ const episodes=explorerMemory?.episodes||[];
+
+ const hasBuild=!!last;
+ const passed=last?.evaluation?.passed;
+ const checks=last?.evaluation?.checks||[];
+ const passedCount=checks.filter(c=>c.passed).length;
+
+ if(hasBuild){
+  const summary=passed
+   ? `Build evaluated — ${passedCount}/${checks.length} checks passed on revision ${report.final_iteration||iterations.length}. All constraints met.`
+   : `Revision ${report.final_iteration||iterations.length} needs repair — ${passedCount}/${checks.length} checks passed. ${checks.filter(c=>!c.passed).map(c=>c.name).join(', ')} failed.`;
+
+  const cards=[];
+  if(explorerGraph||events.length)cards.push({type:'graph',label:'Agent execution graph',expanded:false});
+  if(explorerTelemetry||(iterations.length>1))cards.push({type:'curves',label:'Learning curves',expanded:false});
+  if(explorerMemory||heuristics.length)cards.push({type:'memory',label:'Memory & heuristics',expanded:false});
+
+  explorerChatMessages.push({
+   role:'agent',
+   text:summary,
+   cards,
+   chips:buildRevisionChips(),
+   citations:passed?[{kind:'episode',id:`rev-${report.final_iteration||iterations.length}`,label:`Revision ${report.final_iteration||iterations.length} evaluation`}]:[{kind:'episode',id:`rev-fail-${report.final_iteration||iterations.length}`,label:`Revision ${report.final_iteration||iterations.length} failure`}]
+  });
+
+  if(events.length){
+   const lastEvents=events.slice(-3);
+   explorerChatMessages.push({
+    role:'agent',
+    text:`Here's what happened during the last build:`,
+    cards:[{type:'episode_inline',events:lastEvents}],
+    chips:['Why did it take this path?','Show all events']
+   });
+  }
+
+  if(iterations.length>=2){
+   const first=iterations[0],lastIt=iterations.at(-1);
+   const fc=first.evaluation?.checks||[], lc=lastIt.evaluation?.checks||[];
+   const fp=fc.filter(c=>c.passed).length, lp=lc.filter(c=>c.passed).length;
+   explorerChatMessages.push({
+    role:'agent',
+    text:`Across ${iterations.length} revisions, check pass rate went from ${fp}/${fc.length} to ${lp}/${lc.length}.`,
+    cards:[{type:'curves',label:'Learning curves',expanded:false}],
+    chips:['Show the full comparison','What changed between revisions?']
+   });
+  }
+ }else{
+  explorerChatMessages.push({
+   role:'agent',
+   text:`I haven't run anything yet. I can walk you through the recorded Rove-1 build, or we can start fresh — your call.`,
+   cards:[],
+   chips:['Show the recorded build','What can you do?','Open the dashboard']
+  });
+ }
+}
+
+function buildRevisionChips(){
+ const chips=[];
+ const iterations=report?.iterations||[];
+ if(iterations.length>1)chips.push('Show what I learned');
+ if(report?.events?.length)chips.push('Why did rev 1 fail?');
+ chips.push('Open full panels');
+ chips.push('Show agent graph');
+ return chips;
+}
+
+function renderChatSpine(){
+ const container=document.getElementById('explorer-chat-messages');
+ if(!container)return;
+ container.innerHTML=explorerChatMessages.map((msg,i)=>renderChatMessage(msg,i)).join('');
+ container.querySelectorAll('[data-expand-card]').forEach(btn=>{
+  btn.onclick=()=>{
+   const idx=Number(btn.dataset.expandCard);
+   const cardIdx=Number(btn.dataset.cardIdx);
+   if(explorerChatMessages[idx]?.cards?.[cardIdx])explorerChatMessages[idx].cards[cardIdx].expanded=!explorerChatMessages[idx].cards[cardIdx].expanded;
+   renderChatSpine();
+   setTimeout(()=>renderFullPanelCanvases(),50);
+  };
+ });
+ container.querySelectorAll('[data-open-panels]').forEach(btn=>{
+  btn.onclick=()=>{
+   document.getElementById('explorer-full-panels').hidden=false;
+   document.querySelector('.explorer-chat-layout').style.display='none';
+   setTimeout(()=>{renderAgentGraph();renderLearningCurves();renderMemoryBank()},50);
+  };
+ });
+ container.querySelectorAll('.explorer-chip').forEach(chip=>{
+  chip.onclick=()=>handleChipClick(chip.textContent);
+ });
+}
+
+function renderChatMessage(msg,idx){
+ const isAgent=msg.role==='agent';
+ const avatar=isAgent?'<span class="chat-avatar agent-avatar">✳</span>':'<span class="chat-avatar user-avatar">Y</span>';
+ let cardsHtml='';
+ if(msg.cards?.length){
+  cardsHtml='<div class="chat-cards">'+msg.cards.map((card,ci)=>{
+   if(card.type==='episode_inline'){
+    return `<div class="chat-card episode-card"><span class="eyebrow">BUILD TRACE</span>${(card.events||[]).map(ev=>`<div class="agent-event-entry"><span class="agent-event-dot" style="background:#287e77"></span><b>${escape(ev.role||'agent')}</b><span>${escape(ev.message||'')}</span></div>`).join('')}</div>`;
+   }
+   if(card.type==='episode'){
+    const ep=card.payload||card;
+    return `<div class="chat-card"><div class="chat-card-head"><span class="chat-card-icon">▤</span><span>Episode ${escape(String(ep.episode_id||ep.id||''))}</span><span class="mono small" style="margin-left:auto;color:${ep.outcome==='SUCCESS'?'var(--teal)':'var(--pink)'}">${escape(ep.outcome||'')}</span></div>${ep.summary?`<div class="chat-card-expanded"><p style="margin:0;font-size:12px">${escape(ep.summary)}</p></div>`:''}</div>`;
+   }
+   if(card.type==='rule'){
+    const r=card.payload||card;
+    return `<div class="chat-card"><div class="chat-card-head"><span class="chat-card-icon">◈</span><span>${escape(r.rule||r.name||'Rule')}</span></div>${r.description?`<div class="chat-card-expanded"><p style="margin:0;font-size:12px">${escape(r.description)}</p></div>`:''}</div>`;
+   }
+   const expanded=card.expanded;
+   let inner='';
+   if(expanded){
+    if(card.type==='graph')inner='<div class="chat-card-expanded"><canvas class="chat-inline-canvas" data-chart="agent-graph"></canvas><button class="text-button" data-open-panels="true" style="margin-top:6px">Open full panel ↗</button></div>';
+    else if(card.type==='curves')inner='<div class="chat-card-expanded"><div class="chat-charts-grid"><canvas class="chat-inline-canvas" data-chart="error-rate"></canvas><canvas class="chat-inline-canvas" data-chart="pass-rate"></canvas></div><button class="text-button" data-open-panels="true" style="margin-top:6px">Open full panel ↗</button></div>';
+    else if(card.type==='memory')inner='<div class="chat-card-expanded">'+renderInlineMemory()+'<button class="text-button" data-open-panels="true" style="margin-top:6px">Open full panel ↗</button></div>';
+   }
+   const icon=card.type==='graph'?'⬡':card.type==='curves'?'◇':'◈';
+   return `<div class="chat-card ${expanded?'expanded':''}"><div class="chat-card-head"><span class="chat-card-icon">${icon}</span><span>${escape(card.label||card.type)}</span><button class="chat-card-toggle" data-expand-card="${idx}" data-card-idx="${ci}">${expanded?'▾ Collapse':'▸ Expand'}</button></div>${inner}</div>`;
+  }).join('')+'</div>';
+ }
+ let chipsHtml='';
+ if(msg.chips?.length){
+  chipsHtml='<div class="chat-chips">'+msg.chips.map(c=>`<button class="explorer-chip">${escape(c)}</button>`).join('')+'</div>';
+ }
+ let citationsHtml='';
+ if(msg.citations?.length){
+  citationsHtml='<div class="chat-citations">'+msg.citations.map(c=>`<span class="chat-citation" title="${escape(c.kind)}: ${escape(c.id)}">learned from: ${escape(c.label||c.id)}</span>`).join('')+'</div>';
+ }
+ return `<div class="chat-message ${isAgent?'agent':'user'}">${avatar}<div class="chat-bubble"><p>${escape(msg.text)}</p>${cardsHtml}${citationsHtml}${chipsHtml}</div></div>`;
+}
+
+function renderInlineMemory(){
+ const heuristics=explorerMemory?.heuristics||explorerMemory?.rules||[];
+ const episodes=explorerMemory?.episodes||[];
+ if(!heuristics.length&&!episodes.length)return '<p class="field-hint">No memory data from the backend yet. Run a build to start building the memory bank.</p>';
+ let html='';
+ if(heuristics.length)html+=heuristics.slice(0,3).map(h=>`<div class="memory-rule-item"><span class="memory-rule-icon">◈</span><div><b>${escape(h.rule||h.name||'Rule')}</b><p>${escape(h.description||h.context||'')}</p></div></div>`).join('');
+ if(episodes.length)html+=episodes.slice(0,3).map(ep=>`<div class="memory-episode-item ${ep.outcome==='SUCCESS'?'pass':'fail'}"><div class="memory-episode-head"><b>Ep ${escape(String(ep.episode_id||ep.id||''))}</b><span class="mono small">${escape(ep.outcome||'')}</span></div></div>`).join('');
+ return html;
+}
+
+function renderDefaultChips(){
+ const el=document.getElementById('explorer-chip-suggestions');
+ if(!el)return;
+ const chips=buildRevisionChips();
+ el.innerHTML=chips.map(c=>`<button class="explorer-chip">${escape(c)}</button>`).join('');
+ el.querySelectorAll('.explorer-chip').forEach(chip=>{
+  chip.onclick=()=>handleChipClick(chip.textContent);
+ });
+}
+
+function handleChipClick(text){
+ const input=document.getElementById('explorer-chat-input');
+ if(input){input.value=text;input.focus()}
+}
+
+async function sendExplorerChat(message){
+ if(explorerChatBusy||!message.trim())return;
+ explorerChatBusy=true;
+ explorerChatMessages.push({role:'user',text:message.trim()});
+ renderChatSpine();
+ document.getElementById('explorer-chat-input').value='';
+
+ let reply=null;
+ try{
+  const r=await fetch('/api/agent/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:message.trim()})});
+  if(r.ok)reply=await r.json();
+ }catch{}
+
+ if(reply&&reply.reply){
+  explorerChatMessages.push({role:'agent',text:reply.reply,cards:(reply.cards||[]).map(c=>({...c,expanded:false})),chips:reply.chips||[],citations:reply.citations||[]});
+ }else{
+  const local=buildLocalReply(message.trim());
+  if(local._openPanels){
+   explorerChatMessages.push({role:'agent',text:local.text,cards:[],chips:local.chips||[]});
+   setTimeout(()=>{
+    const fp=document.getElementById('explorer-full-panels');
+    if(fp){fp.hidden=false;document.querySelector('.explorer-chat-layout').style.display='none';setTimeout(()=>{renderAgentGraph();renderLearningCurves();renderMemoryBank()},50)}
+   },100);
+  }else{
+   explorerChatMessages.push(local);
+  }
+ }
+ explorerChatBusy=false;
+ renderChatSpine();
+ renderDefaultChips();
+}
+
+function buildLocalReply(message){
+ const msg=message.toLowerCase();
+ const iterations=report?.iterations||[];
+ const events=report?.events||[];
+ const checks=iterations.at(-1)?.evaluation?.checks||[];
+
+ if(/rev.*1.*fail|why.*fail|what.*wrong/.test(msg)){
+  const failed=iterations[0]?.evaluation?.checks?.filter(c=>!c.passed)||[];
+  if(failed.length){
+   return{role:'agent',text:`Revision 1 failed because ${failed.length} check${failed.length>1?'s':''} didn't pass: ${failed.map(c=>c.name+' (needed '+c.requirement+', got '+c.measured+')').join('; ')}. The repair loop in revision 2 fixed these by adjusting the spec.`,cards:[{type:'episode_inline',events:events.slice(0,3)}],chips:['Show the repair','What changed in rev 2?','Open full panels'],citations:[{kind:'episode',id:'rev-1-failure',label:'Revision 1 evaluation'}]};
+  }
+  return{role:'agent',text:'Revision 1 actually passed all checks. No failures to explain.',cards:[],chips:['Show revision details','Open full panels']};
+ }
+
+ if(/learned|what.*learn|heuristi|memory|rules/.test(msg)){
+  const heuristics=explorerMemory?.heuristics||explorerMemory?.rules||[];
+  if(heuristics.length){
+   return{role:'agent',text:`I've acquired ${heuristics.length} rule${heuristics.length>1?'s':''} from build outcomes so far.`,cards:[{type:'memory',label:'Memory & heuristics',expanded:true}],chips:['Show all rules','Open full panels'],citations:heuristics.map(h=>({kind:'rule',id:h.id||h.rule||'rule',label:h.rule||h.name||'Rule'}))};
+  }
+  return{role:'agent',text:`I haven't acquired any heuristics yet — the memory backend is still being built. Once it's live, every build outcome will teach me new rules about what works and what doesn't.`,cards:[],chips:['Open full panels','What can you track?']};
+ }
+
+ if(/graph|agent|orchestrat|dispatch|sub-agent/.test(msg)){
+  return{role:'agent',text:`The execution graph shows how the orchestrator dispatches to specialists: CAD Specialist for geometry, PCB Specialist for boards, Verifier for constraint checks, and Reflection Synthesizer for learning.`,cards:[{type:'graph',label:'Agent execution graph',expanded:true}],chips:['Show event log','Open full panels']};
+ }
+
+ if(/curve|trend|improv|compar|before.*after|delta/.test(msg)){
+  if(iterations.length>=2){
+   return{role:'agent',text:`Across ${iterations.length} revisions, I can show you how error rate, pass rate, and other metrics evolved.`,cards:[{type:'curves',label:'Learning curves',expanded:true}],chips:['Open full panels','What specific metrics?']};
+  }
+  return{role:'agent',text:`There's only one revision so far — not enough data for trend lines. Run another revision and I'll track the delta.`,cards:[],chips:['Open full panels']};
+ }
+
+ if(/panel|full|dashboard|open/.test(msg)){
+  return{role:'agent',text:`Opening the full inspection panels — agent graph, learning curves, and memory bank.`,cards:[],chips:['Back to chat'],_openPanels:true};
+ }
+
+ if(/recorded|demo|rove|show.*build/.test(msg)){
+  const passed=iterations.at(-1)?.evaluation?.passed;
+  return{role:'agent',text:`The recorded Rove-1 build is a ${passed?'passing':'failing'} ${iterations.length}-revision exemplar. ${checks.filter(c=>c.passed).length}/${checks.length} checks pass. Open the assembly to inspect the 3D geometry.`,cards:[],chips:['Open assembly','Why did rev 1 fail?','Show agent graph']};
+ }
+
+ if(/help|what.*can|command/.test(msg)){
+  return{role:'agent',text:`I can tell you about build revisions, explain failures, show what I've learned, and display the agent execution graph. Try asking "Why did rev 1 fail?" or "Show what I learned."`,cards:[],chips:['Show the recorded build','Show agent graph','Open full panels']};
+ }
+
+ return{role:'agent',text:`I can help with revision history, failure analysis, learning data, and the agent execution graph. Try one of the suggestions below, or ask me directly.`,cards:[],chips:buildRevisionChips()};
+}
+
+document.getElementById('explorer-chat-form')?.addEventListener('submit',e=>{
+ e.preventDefault();
+ const input=document.getElementById('explorer-chat-input');
+ if(input?.value.trim())sendExplorerChat(input.value);
+});
+
+document.getElementById('explorer-chat-input')?.addEventListener('keydown',e=>{
+ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();document.getElementById('explorer-chat-form').requestSubmit()}
+});
+
+document.getElementById('explorer-close-panels')?.addEventListener('click',()=>{
+ document.getElementById('explorer-full-panels').hidden=true;
+ document.querySelector('.explorer-chat-layout').style.display='';
+});
+
+// ---- Sub-Agent Execution Graph (full panel) ----
 const AGENT_ROLES=[
  {id:'orchestrator',label:'Orchestrator / Planner',color:'#287e77',tier:0},
  {id:'cad_specialist',label:'CAD Specialist',color:'#38a395',tier:1},
@@ -2569,8 +2828,8 @@ function renderAgentGraph(){
  ctx.scale(dpr,dpr);
  ctx.clearRect(0,0,w,h);
 
- const agents=explorerGraph?.agents||AGENT_ROLES.map(a=>({id:a.id,label:a.label,status:'idle',events:[]}));
- const events=explorerGraph?.events||[];
+ const agents=explorerGraph?.agents||AGENT_ROLES.map(a=>({id:a.id,status:'idle'}));
+ const events=explorerGraph?.events||report?.events||[];
 
  const nodes=AGENT_ROLES.map((role,i)=>{
   const tierCounts=AGENT_ROLES.filter(r=>r.tier===role.tier).length;
@@ -2580,52 +2839,32 @@ function renderAgentGraph(){
   const spacing=tierWidth/(tierCounts+1);
   const x=40+spacing*(tierIdx+1);
   const agent=agents.find(a=>a.id===role.id)||{status:'idle'};
-  return {...role,x,y:tierY,status:agent.status||'idle',events:agent.events||[]};
+  return {...role,x,y:tierY,status:agent.status||'idle'};
  });
 
- ctx.fillStyle='#f6f3eb';
- ctx.fillRect(0,0,w,h);
-
+ ctx.fillStyle='#f6f3eb';ctx.fillRect(0,0,w,h);
  ctx.setLineDash([4,4]);
- ctx.strokeStyle='#dcd9ce';ctx.lineWidth=1;
  nodes.forEach(n=>{
-  if(n.tier>0){
-   const parent=nodes.find(p=>p.tier===n.tier-1);
-   if(parent){ctx.beginPath();ctx.moveTo(parent.x,parent.y+18);ctx.lineTo(n.x,n.y-18);ctx.strokeStyle='#c8c5b8';ctx.stroke()}
-  }
+  if(n.tier>0){const parent=nodes.find(p=>p.tier===n.tier-1);if(parent){ctx.beginPath();ctx.moveTo(parent.x,parent.y+18);ctx.lineTo(n.x,n.y-18);ctx.strokeStyle='#c8c5b8';ctx.lineWidth=1;ctx.stroke()}}
  });
  ctx.setLineDash([]);
-
  nodes.forEach(n=>{
   const r=16;
-  ctx.beginPath();ctx.arc(n.x,n.y,r,0,Math.PI*2);
-  ctx.fillStyle=n.color;ctx.fill();
-  ctx.strokeStyle='#f6f3eb';ctx.lineWidth=2.5;ctx.stroke();
-
-  if(n.status==='running'){
-   ctx.beginPath();ctx.arc(n.x,n.y,r+4,0,Math.PI*2);
-   ctx.strokeStyle=n.color+'66';ctx.lineWidth=2;ctx.stroke();
-  }
-
-  ctx.fillStyle='#343b35';ctx.font='600 10px "DM Sans",sans-serif';ctx.textAlign='center';
-  ctx.fillText(n.label,n.x,n.y+r+14);
-
+  ctx.beginPath();ctx.arc(n.x,n.y,r,0,Math.PI*2);ctx.fillStyle=n.color;ctx.fill();ctx.strokeStyle='#f6f3eb';ctx.lineWidth=2.5;ctx.stroke();
+  if(n.status==='running'){ctx.beginPath();ctx.arc(n.x,n.y,r+4,0,Math.PI*2);ctx.strokeStyle=n.color+'66';ctx.lineWidth=2;ctx.stroke()}
+  ctx.fillStyle='#343b35';ctx.font='600 10px "DM Sans",sans-serif';ctx.textAlign='center';ctx.fillText(n.label,n.x,n.y+r+14);
   const statusCol=n.status==='running'?'#287e77':n.status==='error'?'#aa4c79':n.status==='done'?'#38a395':'#b0b3a4';
-  ctx.fillStyle=statusCol;ctx.font='500 8px "IBM Plex Mono",monospace';
-  ctx.fillText(n.status.toUpperCase(),n.x,n.y+r+25);
+  ctx.fillStyle=statusCol;ctx.font='500 8px "IBM Plex Mono",monospace';ctx.fillText(n.status.toUpperCase(),n.x,n.y+r+25);
  });
 
  const legendEl=document.getElementById('agent-graph-legend');
- if(legendEl){
-  legendEl.innerHTML=nodes.map(n=>`<span class="agent-legend-item"><i style="background:${n.color}"></i>${escape(n.label)}<small>${n.status}</small></span>`).join('');
- }
-
- statusEl.textContent=explorerGraph?`${agents.length} agents · ${events.length} events`:'No live agent data';
+ if(legendEl)legendEl.innerHTML=nodes.map(n=>`<span class="agent-legend-item"><i style="background:${n.color}"></i>${escape(n.label)}<small>${n.status}</small></span>`).join('');
+ statusEl.textContent=explorerGraph?`${agents.length} agents · ${events.length} events`:'Waiting for agent backend — showing default roles';
 
  const entriesEl=document.getElementById('agent-event-entries');
  if(entriesEl){
-  if(events.length){
-   entriesEl.innerHTML=events.slice(-12).reverse().map(ev=>`<div class="agent-event-entry"><span class="agent-event-dot" style="background:${(nodes.find(n=>n.id===ev.agent)?.color)||'#888'}"></span><b>${escape(ev.agent||'system')}</b><span>${escape(ev.message||ev.event||'')}</span><small>${escape(ev.timestamp||'')}</small></div>`).join('');
+  if(explorerGraph?.events?.length){
+   entriesEl.innerHTML=explorerGraph.events.slice(-12).reverse().map(ev=>`<div class="agent-event-entry"><span class="agent-event-dot" style="background:${(nodes.find(n=>n.id===ev.agent)?.color)||'#888'}"></span><b>${escape(ev.agent||'system')}</b><span>${escape(ev.message||ev.event||'')}</span></div>`).join('');
   }else if(report?.events?.length){
    entriesEl.innerHTML=report.events.slice(-8).reverse().map(ev=>`<div class="agent-event-entry"><span class="agent-event-dot" style="background:#287e77"></span><b>${escape(ev.role||'agent')}</b><span>${escape(ev.message||'')}</span></div>`).join('');
   }else{
@@ -2634,8 +2873,8 @@ function renderAgentGraph(){
  }
 }
 
-// ---- Learning Curve Charts ----
-function drawLineChart(canvasId, data, color, yLabel, lowerIsBetter=true){
+// ---- Learning Curve Charts (full panel) ----
+function drawLineChart(canvasId, data, color){
  const canvas=document.getElementById(canvasId);
  if(!canvas)return;
  const wrap=canvas.parentElement;
@@ -2643,119 +2882,116 @@ function drawLineChart(canvasId, data, color, yLabel, lowerIsBetter=true){
  const dpr=Math.min(devicePixelRatio||1,2);
  canvas.width=w*dpr;canvas.height=h*dpr;
  canvas.style.width=w+'px';canvas.style.height=h+'px';
- const ctx=canvas.getContext('2d');
- ctx.scale(dpr,dpr);
- ctx.clearRect(0,0,w,h);
-
+ const ctx=canvas.getContext('2d');ctx.scale(dpr,dpr);ctx.clearRect(0,0,w,h);
  const pad={t:12,r:12,b:22,l:36};
  const cw=w-pad.l-pad.r, ch=h-pad.t-pad.b;
-
  if(!data||data.length<1){
   ctx.fillStyle='#b0b3a4';ctx.font='11px "DM Sans",sans-serif';ctx.textAlign='center';
-  ctx.fillText('No telemetry data yet',w/2,h/2-6);
+  ctx.fillText('Data unavailable',w/2,h/2-6);
   ctx.font='9px "IBM Plex Mono",monospace';
-  ctx.fillText('Connect runner to populate',w/2,h/2+10);
+  ctx.fillText('Connect backend to populate',w/2,h/2+10);
   return;
  }
-
- const vals=data.map(d=>d.value);
+ const vals=data.map(d=>d.value).filter(v=>v!=null&&isFinite(v));
+ if(!vals.length){
+  ctx.fillStyle='#b0b3a4';ctx.font='11px "DM Sans",sans-serif';ctx.textAlign='center';
+  ctx.fillText('Data unavailable',w/2,h/2);return;
+ }
  let minV=Math.min(...vals), maxV=Math.max(...vals);
  if(minV===maxV){minV-=1;maxV+=1}
  const rangeV=maxV-minV;
-
  ctx.strokeStyle='#e8e5db';ctx.lineWidth=1;
- for(let i=0;i<=4;i++){
-  const y=pad.t+ch*(i/4);
-  ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(pad.l+cw,y);ctx.stroke();
-  ctx.fillStyle='#999';ctx.font='8px "IBM Plex Mono",monospace';ctx.textAlign='right';
-  ctx.fillText((maxV-rangeV*(i/4)).toFixed(1),pad.l-4,y+3);
- }
-
+ for(let i=0;i<=4;i++){const y=pad.t+ch*(i/4);ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(pad.l+cw,y);ctx.stroke();ctx.fillStyle='#999';ctx.font='8px "IBM Plex Mono",monospace';ctx.textAlign='right';ctx.fillText((maxV-rangeV*(i/4)).toFixed(1),pad.l-4,y+3)}
  ctx.beginPath();
- data.forEach((d,i)=>{
-  const x=pad.l+(data.length>1?i/(data.length-1):0.5)*cw;
-  const y=pad.t+(1-(d.value-minV)/rangeV)*ch;
-  if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
- });
+ data.forEach((d,i)=>{if(d.value==null||!isFinite(d.value))return;const x=pad.l+(data.length>1?i/(data.length-1):0.5)*cw;const y=pad.t+(1-(d.value-minV)/rangeV)*ch;if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y)});
  ctx.strokeStyle=color;ctx.lineWidth=2;ctx.stroke();
-
- data.forEach((d,i)=>{
-  const x=pad.l+(data.length>1?i/(data.length-1):0.5)*cw;
-  const y=pad.t+(1-(d.value-minV)/rangeV)*ch;
-  ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);ctx.fillStyle=color;ctx.fill();
-  ctx.strokeStyle='#f6f3eb';ctx.lineWidth=1.5;ctx.stroke();
- });
-
+ data.forEach((d,i)=>{if(d.value==null||!isFinite(d.value))return;const x=pad.l+(data.length>1?i/(data.length-1):0.5)*cw;const y=pad.t+(1-(d.value-minV)/rangeV)*ch;ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);ctx.fillStyle=color;ctx.fill();ctx.strokeStyle='#f6f3eb';ctx.lineWidth=1.5;ctx.stroke()});
  ctx.fillStyle='#999';ctx.font='8px "IBM Plex Mono",monospace';ctx.textAlign='center';
- data.forEach((d,i)=>{
-  if(data.length<=8||i%Math.ceil(data.length/6)===0||i===data.length-1){
-   const x=pad.l+(data.length>1?i/(data.length-1):0.5)*cw;
-   ctx.fillText('R'+(d.revision||i+1),x,h-4);
-  }
- });
+ data.forEach((d,i)=>{if(data.length<=8||i%Math.ceil(data.length/6)===0||i===data.length-1){const x=pad.l+(data.length>1?i/(data.length-1):0.5)*cw;ctx.fillText('R'+(d.revision||i+1),x,h-4)}});
+}
+
+function getRealRevisionData(){
+ const telem=explorerTelemetry;
+ if(telem&&Array.isArray(telem)&&telem.length){
+  return telem.map((t,i)=>({
+   revision:t.revision||i+1,
+   error_rate:t.error_rate??null,
+   pass_rate:t.check_pass_rate??null,
+   duration:t.execution_duration_ms!=null?t.execution_duration_ms:null,
+   tokens:t.total_tokens!=null?t.total_tokens:null
+  }));
+ }
+ if(telem&&typeof telem==='object'&&!Array.isArray(telem)&&telem.revisions){
+  return telem.revisions;
+ }
+ if(report&&report.iterations&&report.iterations.length>1){
+  return report.iterations.map((it,i)=>{
+   const checks=it.evaluation?.checks||[];
+   const passed=checks.filter(c=>c.passed).length;
+   const total=checks.length||1;
+   return{
+    revision:i+1,
+    error_rate:1-passed/total,
+    pass_rate:passed/total,
+    duration:it.duration_ms!=null?it.duration_ms:null,
+    tokens:it.total_tokens!=null?it.total_tokens:null
+   };
+  });
+ }
+ return[];
 }
 
 function renderLearningCurves(){
  const statusEl=document.getElementById('learning-status');
- const telem=explorerTelemetry;
- let revisions=[];
+ const revisions=getRealRevisionData();
+ const hasError=revisions.some(r=>r.error_rate!=null);
+ const hasPass=revisions.some(r=>r.pass_rate!=null);
+ const hasDuration=revisions.some(r=>r.duration!=null);
+ const hasTokens=revisions.some(r=>r.tokens!=null);
 
- if(telem&&Array.isArray(telem)&&telem.length){
-  revisions=telem.map((t,i)=>({revision:t.revision||i+1,error_rate:t.error_rate??0,pass_rate:t.check_pass_rate??0,duration:t.execution_duration_ms??0,tokens:t.total_tokens??0}));
- }else if(telem&&typeof telem==='object'&&!Array.isArray(telem)&&telem.revisions){
-  revisions=telem.revisions;
- }else if(report&&report.iterations&&report.iterations.length>1){
-  revisions=report.iterations.map((it,i)=>{
-   const checks=it.evaluation?.checks||[];
-   const passed=checks.filter(c=>c.passed).length;
-   const total=checks.length||1;
-   return{revision:i+1,error_rate:1-passed/total,pass_rate:passed/total,duration:it.duration_ms||(2000-i*300),tokens:it.tokens||(2000-i*200)};
-  });
- }
+ drawLineChart('chart-error-rate',hasError?revisions.map(r=>({revision:r.revision,value:r.error_rate})):null,'#aa4c79');
+ drawLineChart('chart-pass-rate',hasPass?revisions.map(r=>({revision:r.revision,value:r.pass_rate})):null,'#287e77');
+ drawLineChart('chart-duration',hasDuration?revisions.map(r=>({revision:r.revision,value:r.duration})):null,'#d47c4e');
+ drawLineChart('chart-tokens',hasTokens?revisions.map(r=>({revision:r.revision,value:r.tokens})):null,'#7b68ae');
 
- const errorData=revisions.map(r=>({revision:r.revision,value:r.error_rate}));
- const passData=revisions.map(r=>({revision:r.revision,value:r.pass_rate}));
- const durData=revisions.map(r=>({revision:r.revision,value:r.duration}));
- const tokData=revisions.map(r=>({revision:r.revision,value:r.tokens}));
-
- drawLineChart('chart-error-rate',errorData,'#aa4c79','Error rate',true);
- drawLineChart('chart-pass-rate',passData,'#287e77','Pass rate',false);
- drawLineChart('chart-duration',durData,'#d47c4e','Duration (ms)',true);
- drawLineChart('chart-tokens',tokData,'#7b68ae','Tokens',true);
-
- statusEl.textContent=revisions.length?`${revisions.length} revisions tracked`:'No telemetry yet';
+ const tracked=[hasError&&'error rate',hasPass&&'pass rate',hasDuration&&'duration',hasTokens&&'tokens'].filter(Boolean);
+ statusEl.textContent=tracked.length?`${revisions.length} revisions · ${tracked.join(', ')} tracked`:'Waiting for telemetry backend';
 
  const compEl=document.getElementById('learning-comparison');
  if(compEl){
-  if(revisions.length>=2){
+  if(revisions.length>=2&&(hasError||hasPass)){
    const first=revisions[0],last=revisions[revisions.length-1];
-   const errDelta=first.error_rate>0?((last.error_rate-first.error_rate)/first.error_rate*100):0;
-   const durDelta=first.duration>0?((last.duration-first.duration)/first.duration*100):0;
-   const tokDelta=first.tokens>0?((last.tokens-first.tokens)/first.tokens*100):0;
-   const fmt=v=>v>0?`+${v.toFixed(0)}%`:`${v.toFixed(0)}%`;
-   const col=v=>v<=0?'#287e77':'#aa4c79';
-   compEl.innerHTML=`<div class="comparison-head"><span class="eyebrow">BEFORE → AFTER</span><span class="mono small">Rev ${first.revision} → Rev ${last.revision}</span></div>
-<div class="comparison-grid">
-<div class="comparison-stat"><span>Error rate</span><b style="color:${col(errDelta)}">${fmt(errDelta)}</b><small>${(first.error_rate*100).toFixed(0)}% → ${(last.error_rate*100).toFixed(0)}%</small></div>
-<div class="comparison-stat"><span>Duration</span><b style="color:${col(durDelta)}">${fmt(durDelta)}</b><small>${first.duration.toFixed(0)}ms → ${last.duration.toFixed(0)}ms</small></div>
-<div class="comparison-stat"><span>Tokens</span><b style="color:${col(tokDelta)}">${fmt(tokDelta)}</b><small>${first.tokens.toFixed(0)} → ${last.tokens.toFixed(0)}</small></div>
-<div class="comparison-stat"><span>Pass rate</span><b style="color:#287e77">${(last.pass_rate*100).toFixed(0)}%</b><small>${(first.pass_rate*100).toFixed(0)}% → ${(last.pass_rate*100).toFixed(0)}%</small></div>
-</div>`;
+   let statsHtml='';
+   if(first.error_rate!=null&&last.error_rate!=null&&first.error_rate>0){
+    const d=(last.error_rate-first.error_rate)/first.error_rate*100;
+    statsHtml+=`<div class="comparison-stat"><span>Error rate</span><b style="color:${d<=0?'#287e77':'#aa4c79'}">${d>0?'+':''}${d.toFixed(0)}%</b><small>${(first.error_rate*100).toFixed(0)}% → ${(last.error_rate*100).toFixed(0)}%</small></div>`;
+   }
+   if(first.pass_rate!=null&&last.pass_rate!=null){
+    statsHtml+=`<div class="comparison-stat"><span>Pass rate</span><b style="color:#287e77">${(last.pass_rate*100).toFixed(0)}%</b><small>${(first.pass_rate*100).toFixed(0)}% → ${(last.pass_rate*100).toFixed(0)}%</small></div>`;
+   }
+   if(first.duration!=null&&last.duration!=null&&first.duration>0){
+    const d=(last.duration-first.duration)/first.duration*100;
+    statsHtml+=`<div class="comparison-stat"><span>Duration</span><b style="color:${d<=0?'#287e77':'#aa4c79'}">${d>0?'+':''}${d.toFixed(0)}%</b><small>${first.duration.toFixed(0)}ms → ${last.duration.toFixed(0)}ms</small></div>`;
+   }
+   if(first.tokens!=null&&last.tokens!=null&&first.tokens>0){
+    const d=(last.tokens-first.tokens)/first.tokens*100;
+    statsHtml+=`<div class="comparison-stat"><span>Tokens</span><b style="color:${d<=0?'#287e77':'#aa4c79'}">${d>0?'+':''}${d.toFixed(0)}%</b><small>${first.tokens.toFixed(0)} → ${last.tokens.toFixed(0)}</small></div>`;
+   }
+   if(!statsHtml)statsHtml='<p class="field-hint">Measured metrics unavailable — backend has not reported duration or token counts yet.</p>';
+   compEl.innerHTML=`<div class="comparison-head"><span class="eyebrow">BEFORE → AFTER</span><span class="mono small">Rev ${first.revision} → Rev ${last.revision}</span></div><div class="comparison-grid">${statsHtml}</div>`;
   }else{
-   compEl.innerHTML='<p class="field-hint">Run at least 2 revisions to see before/after comparisons.</p>';
+   compEl.innerHTML='<p class="field-hint">Run at least 2 revisions with the learning backend connected to see measured before/after comparisons.</p>';
   }
  }
 }
 
-// ---- Memory & Heuristics Bank ----
+// ---- Memory & Heuristics Bank (full panel) ----
 function renderMemoryBank(){
  const statusEl=document.getElementById('memory-status');
  const mem=explorerMemory;
-
  const heurListEl=document.getElementById('memory-heuristics-list');
  const epListEl=document.getElementById('memory-episodes-list');
  const adaptListEl=document.getElementById('memory-adaptation-list');
-
  const heuristics=mem?.heuristics||mem?.rules||[];
  const episodes=mem?.episodes||[];
  const adaptations=mem?.adaptations||[];
@@ -2764,27 +3000,53 @@ function renderMemoryBank(){
   if(heuristics.length){
    heurListEl.innerHTML=heuristics.map(h=>`<div class="memory-rule-item"><span class="memory-rule-icon">◈</span><div><b>${escape(h.rule||h.name||'Heuristic')}</b><p>${escape(h.description||h.context||'')}</p></div><span class="memory-rule-conf mono">${h.confidence?((h.confidence*100).toFixed(0)+'%'):'—'}</span></div>`).join('');
   }else{
-   heurListEl.innerHTML='<div class="memory-empty"><div class="memory-empty-icon">◈</div><b>No heuristics acquired yet</b><p>Domain rules and procedural knowledge will appear here as the agent learns from build outcomes.</p></div>';
+   heurListEl.innerHTML='<div class="memory-empty"><div class="memory-empty-icon">◈</div><b>No heuristics acquired yet</b><p>The memory backend is being built. Once connected, domain rules learned from build outcomes will appear here.</p></div>';
   }
  }
-
  if(epListEl){
   if(episodes.length){
-   epListEl.innerHTML=episodes.map(ep=>`<div class="memory-episode-item ${ep.outcome==='SUCCESS'?'pass':'fail'}"><div class="memory-episode-head"><b>Episode ${escape(String(ep.episode_id||ep.id||''))}</b><span class="mono small">${escape(ep.outcome||'UNKNOWN')}</span></div><p>${escape(ep.summary||ep.description||'')}</p><div class="memory-episode-meta"><span>Rev ${ep.revision||'?'}</span><span>${ep.checks_passed||0}/${ep.checks_total||0} checks</span><span>${ep.duration_ms?ep.duration_ms.toFixed(0)+'ms':'—'}</span><span>${ep.total_tokens||0} tokens</span></div></div>`).join('');
+   epListEl.innerHTML=episodes.map(ep=>`<div class="memory-episode-item ${ep.outcome==='SUCCESS'?'pass':'fail'}"><div class="memory-episode-head"><b>Episode ${escape(String(ep.episode_id||ep.id||''))}</b><span class="mono small">${escape(ep.outcome||'UNKNOWN')}</span></div><p>${escape(ep.summary||ep.description||'')}</p><div class="memory-episode-meta"><span>Rev ${ep.revision||'?'}</span><span>${ep.checks_passed||0}/${ep.checks_total||0} checks</span>${ep.duration_ms!=null?`<span>${ep.duration_ms.toFixed(0)}ms</span>`:'<span>duration unavailable</span>'}${ep.total_tokens!=null?`<span>${ep.total_tokens} tokens</span>`:'<span>tokens unavailable</span>'}</div></div>`).join('');
   }else{
-   epListEl.innerHTML='<div class="memory-empty"><div class="memory-empty-icon">▤</div><b>No episodic traces yet</b><p>Each build run creates an episodic memory capturing what happened, what worked, and what failed.</p></div>';
+   epListEl.innerHTML='<div class="memory-empty"><div class="memory-empty-icon">▤</div><b>No episodic traces yet</b><p>Each build run creates an episodic memory. The backend is being built — episodes will appear here once connected.</p></div>';
   }
  }
-
  if(adaptListEl){
   if(adaptations.length){
    adaptListEl.innerHTML=adaptations.map(a=>`<div class="memory-adaptation-item"><b>${escape(a.name||a.trigger||'Adaptation')}</b><p>${escape(a.description||a.action||'')}</p></div>`).join('');
   }else{
-   adaptListEl.innerHTML='<div class="memory-empty"><div class="memory-empty-icon">⟳</div><b>No adaptation data yet</b><p>Contextual adaptations — parameter adjustments, strategy shifts, and tool selection changes — will be tracked here over time.</p></div>';
+   adaptListEl.innerHTML='<div class="memory-empty"><div class="memory-empty-icon">⟳</div><b>No adaptation data yet</b><p>Contextual adaptations will be tracked once the learning backend is connected.</p></div>';
   }
  }
+ statusEl.textContent=mem?`${heuristics.length} rules · ${episodes.length} episodes`:'Waiting for memory backend';
+}
 
- statusEl.textContent=mem?`${heuristics.length} rules · ${episodes.length} episodes`:'No memory data yet';
+function renderFullPanelCanvases(){
+ document.querySelectorAll('.chat-inline-canvas').forEach(canvas=>{
+  const type=canvas.dataset.chart;
+  const w=canvas.parentElement.clientWidth||260,h=100;
+  const dpr=Math.min(devicePixelRatio||1,2);
+  canvas.width=w*dpr;canvas.height=h*dpr;canvas.style.width=w+'px';canvas.style.height=h+'px';
+  const ctx=canvas.getContext('2d');ctx.scale(dpr,dpr);ctx.clearRect(0,0,w,h);
+  if(type==='agent-graph'){
+   ctx.fillStyle='#f0eee5';ctx.fillRect(0,0,w,h);
+   const nodes=[{x:w*0.5,y:18,c:'#287e77'},{x:w*0.25,y:48,c:'#38a395'},{x:w*0.75,y:48,c:'#aa4c79'},{x:w*0.15,y:78,c:'#d47c4e'},{x:w*0.45,y:78,c:'#7b68ae'},{x:w*0.75,y:78,c:'#d47c4e'}];
+   ctx.setLineDash([2,2]);ctx.strokeStyle='#c8c5b8';ctx.lineWidth=1;
+   [[0,1],[0,2],[1,3],[1,4],[2,5]].forEach(([a,b])=>{ctx.beginPath();ctx.moveTo(nodes[a].x,nodes[a].y);ctx.lineTo(nodes[b].x,nodes[b].y);ctx.stroke()});
+   ctx.setLineDash([]);
+   nodes.forEach(n=>{ctx.beginPath();ctx.arc(n.x,n.y,6,0,Math.PI*2);ctx.fillStyle=n.c;ctx.fill()});
+  }else if(type==='error-rate'||type==='pass-rate'){
+   const revisions=getRealRevisionData();
+   const key=type==='error-rate'?'error_rate':'pass_rate';
+   const color=type==='error-rate'?'#aa4c79':'#287e77';
+   const data=revisions.filter(r=>r[key]!=null).map(r=>({revision:r.revision,value:r[key]}));
+   if(!data.length){ctx.fillStyle='#b0b3a4';ctx.font='10px "DM Sans",sans-serif';ctx.textAlign='center';ctx.fillText('Data unavailable',w/2,h/2);return}
+   const vals=data.map(d=>d.value);let minV=Math.min(...vals),maxV=Math.max(...vals);if(minV===maxV){minV-=1;maxV+=1}
+   const pad=16,cw=w-pad*2,ch=h-pad*2,rangeV=maxV-minV;
+   ctx.beginPath();data.forEach((d,i)=>{const x=pad+(data.length>1?i/(data.length-1):0.5)*cw;const y=pad+(1-(d.value-minV)/rangeV)*ch;i===0?ctx.moveTo(x,y):ctx.lineTo(x,y)});
+   ctx.strokeStyle=color;ctx.lineWidth=2;ctx.stroke();
+   data.forEach(d=>{const x=pad+(data.length>1?(data.indexOf(d))/(data.length-1):0.5)*cw;const y=pad+(1-(d.value-minV)/rangeV)*ch;ctx.beginPath();ctx.arc(x,y,2.5,0,Math.PI*2);ctx.fillStyle=color;ctx.fill()});
+  }
+ });
 }
 
 document.addEventListener('click',e=>{
@@ -2798,15 +3060,11 @@ document.addEventListener('click',e=>{
  }
 });
 
-document.getElementById('explorer-refresh-btn')?.addEventListener('click',()=>{
- explorerFetched=false;
- fetchExplorerData().then(()=>{renderExplorer();toast('Telemetry refreshed.')});
-});
-
 window.addEventListener('resize',()=>{
  if(!document.getElementById('explorer-view')?.hidden){
-  renderAgentGraph();
-  renderLearningCurves();
+  if(!document.getElementById('explorer-full-panels')?.hidden){
+   renderAgentGraph();renderLearningCurves();
+  }
  }
 });
 
