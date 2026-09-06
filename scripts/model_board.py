@@ -69,7 +69,6 @@ def generate(spec, out):
     opts.SetOutputDirectory(str(gerber_dir))
     opts.SetFormat(k.PLOT_FORMAT_GERBER)
     opts.SetUseGerberAttributes(True)
-    opts.SetExcludeEdgesFromBoardOutline(True)
     opts.SetPlotFrameRef(False)
     pc=k.PLOT_CONTROLLER(saved)
     pc.SetPlotParams(opts)
