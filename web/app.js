@@ -2535,6 +2535,7 @@ var explorerTelemetry=null, explorerMemory=null, explorerGraph=null;
 var explorerFetched=false;
 var explorerChatMessages=[];
 var explorerChatBusy=false;
+var explorerBackendReachable=true;
 
 async function fetchExplorerData(){
  const safeFetch=async(url)=>{try{const r=await fetch(url);if(!r.ok)return null;return await r.json()}catch{return null}};
@@ -2682,7 +2683,8 @@ function renderChatMessage(msg,idx){
  if(msg.citations?.length){
   citationsHtml='<div class="chat-citations">'+msg.citations.map(c=>`<span class="chat-citation" title="${escape(c.kind)}: ${escape(c.id)}">learned from: ${escape(c.label||c.id)}</span>`).join('')+'</div>';
  }
- return `<div class="chat-message ${isAgent?'agent':'user'}">${avatar}<div class="chat-bubble"><p>${escape(msg.text)}</p>${cardsHtml}${citationsHtml}${chipsHtml}</div></div>`;
+ const fallbackNote=msg._localFallback?'<small class="chat-local-note">⚠ backend unreachable — local guidance only</small>':'';
+ return `<div class="chat-message ${isAgent?'agent':'user'}">${avatar}<div class="chat-bubble"><p>${escape(msg.text)}</p>${cardsHtml}${citationsHtml}${chipsHtml}${fallbackNote}</div></div>`;
 }
 
 function renderInlineMemory(){
@@ -2717,18 +2719,21 @@ async function sendExplorerChat(message){
  renderChatSpine();
  document.getElementById('explorer-chat-input').value='';
 
- let reply=null;
+ let reply=null,backendDown=false;
  try{
   const r=await fetch('/api/agent/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:message.trim()})});
   if(r.ok)reply=await r.json();
- }catch{}
+ }catch{backendDown=true}
 
  if(reply&&reply.reply){
+  explorerBackendReachable=true;
   explorerChatMessages.push({role:'agent',text:reply.reply,cards:(reply.cards||[]).map(c=>({...c,expanded:false})),chips:reply.chips||[],citations:reply.citations||[]});
  }else{
+  if(backendDown)explorerBackendReachable=false;
   const local=buildLocalReply(message.trim());
+  if(backendDown)local._localFallback=true;
   if(local._openPanels){
-   explorerChatMessages.push({role:'agent',text:local.text,cards:[],chips:local.chips||[]});
+   explorerChatMessages.push({role:'agent',text:local.text,cards:[],chips:local.chips||[],_localFallback:local._localFallback});
    setTimeout(()=>{
     const fp=document.getElementById('explorer-full-panels');
     if(fp){fp.hidden=false;document.querySelector('.explorer-chat-layout').style.display='none';setTimeout(()=>{renderAgentGraph();renderLearningCurves();renderMemoryBank()},50)}
@@ -2740,6 +2745,8 @@ async function sendExplorerChat(message){
  explorerChatBusy=false;
  renderChatSpine();
  renderDefaultChips();
+ const modeEl=document.getElementById('explorer-composer-mode');
+ if(modeEl)modeEl.textContent=explorerBackendReachable?'AGENT':'LOCAL GUIDANCE';
 }
 
 function buildLocalReply(message){
