@@ -3,31 +3,178 @@
 <body>
 <canvas id="interactive-grid-canvas" aria-hidden="true"></canvas>
 <div id="boot" role="status" aria-label="AutoCadent launch sequence"><div class="boot-inner"><div class="boot-logo" aria-hidden="true"><span class="boot-word"><b style="--d:.00s">A</b><b style="--d:.06s">U</b><b style="--d:.12s">T</b><b style="--d:.18s">O</b><b style="--d:.24s">C</b><b style="--d:.30s">A</b><b style="--d:.36s">D</b><b style="--d:.42s">E</b><b style="--d:.48s">N</b><b style="--d:.54s">T</b><i>·</i></span><span class="boot-bar"><i></i></span></div><button id="boot-skip" class="boot-skip" type="button">skip »</button></div><div class="boot-flash" aria-hidden="true"><i class="cf cf-tl"></i><i class="cf cf-tr"></i><i class="cf cf-bl"></i><i class="cf cf-br"></i><i class="cf cf-c"></i></div><div class="boot-term"><div class="boot-term-lines"></div></div></div>
-<header class="topbar"><a class="brand" href="#/dashboard" aria-label="AutoCadent home"><span class="brandmark">A<span>·</span></span>AutoCadent</a><div class="project-path"><span>Workspace</span><b>/</b><span id="view-crumb">Dashboard</span></div><div class="top-actions"><button id="guide-btn" class="plain">Help</button><button id="connect-btn" class="connection"><i></i><span id="connection-label">Connect runner</span><span>↗</span></button></div></header>
+<header class="topbar"><a class="brand" href="#/dashboard" aria-label="AutoCadent home"><span class="brandmark">A<span>·</span></span>AutoCadent</a><div class="project-path"><span>Workspace</span><b>/</b><span id="view-crumb">Dashboard</span></div><div class="top-actions"><button id="audio-toggle-btn" class="plain" title="Toggle audio cues (Web Audio synth)" aria-label="Toggle audio cues">🔊</button><button id="guide-btn" class="plain">Help</button><button id="connect-btn" class="connection"><i></i><span id="connection-label">Connect runner</span><span>↗</span></button></div></header>
 <main class="workspace">
-<aside class="agent-panel"><div class="panel-heading"><h2>Design agent</h2><button id="agent-fullscreen-btn" class="icon-btn" title="Toggle fullscreen workspace" aria-label="Toggle fullscreen workspace">⛶</button></div><div class="agent-scroll"><div class="intro"><span class="eyebrow">DESIGN WORKSPACE</span><h1>What’s next?</h1><p>Describe a change, or type / for commands.</p></div><div class="request-card"><div class="message-label"><span class="user-dot">Y</span> DESIGN BRIEF</div><p id="brief-text">Loading recorded brief…</p><div class="chips"><span>Parametric CAD</span><span>Signal board</span></div></div><div class="run-heading"><span class="agent-dot">✳</span><b>AutoCadent</b><span class="mono small" id="run-label">RECORDED RUN</span></div><div id="activity" aria-live="polite"></div><button id="replay-btn" class="text-button">↺ Inspect failure & repair</button><div class="scope-note"><span>ⓘ</span><p>A bounded rover exemplar. Wheels and sensors are envelopes; physical performance is untested.</p></div></div><form id="brief-form" class="composer"><label for="brief" class="composer-label">Describe your robot or part</label><textarea id="brief" placeholder="Make the chassis wider… or type /" aria-controls="slash-menu" aria-autocomplete="list" aria-expanded="false" rows="3" maxlength="1500"></textarea><div id="slash-menu" class="slash-menu" role="listbox" aria-label="Design commands" hidden></div><div class="composer-bottom"><span class="mono small">✳ <span id="composer-mode">CONNECT TO BUILD</span></span><button aria-label="Submit design brief" type="submit" id="submit-brief">↑</button></div><p id="brief-feedback" role="status"></p></form></aside>
+<aside class="agent-panel" id="agent-panel">
+<div class="panel-heading"><div class="agent-brand-title"><h2>Design Copilot</h2><span class="agent-model-pill" id="agent-model-badge" title="Zhipu GLM-4.7-Flash 30B MoE on Tensormux"><span class="pulse-dot"></span><b>GLM-4.7-Flash</b></span></div><div class="agent-top-actions"><button id="agent-fullscreen-btn" class="icon-btn" title="Open Design Agent Studio (Full Screen)" aria-label="Open Design Agent Studio">⛶</button></div></div>
+ <div class="agent-scroll" id="agent-pane-copilot">
+  <div class="intro" hidden><span class="eyebrow">DESIGN WORKSPACE</span><h1 id="copilot-headline">What’s next?</h1><p id="copilot-subhead">Describe a change, ask about geometry or repairs, or type / for commands.</p></div>
+  <div class="request-card" id="request-card" hidden><div class="message-label"><span class="user-dot">Y</span> ACTIVE DESIGN BRIEF</div><p id="brief-text">Describe your design brief to begin.</p><div class="chips" id="brief-tags"><span>Parametric CAD</span><span>Signal board</span><span class="active-heuristic-chip" id="heuristics-count-chip">0 Rules Active</span></div></div>
+  <div class="revision-control-card" id="revision-control-card">
+    <div class="rev-card-header"><span class="mono eyebrow">EVALUATED REVISIONS</span><span class="rev-build-badge draft" id="rev-badge-status">Draft · Unevaluated</span></div>
+    <div class="rev-toggle-group" id="rev-toggle-group" style="display:none">
+      <button type="button" class="rev-btn" id="rev-btn-1" data-rev="1"><span class="rev-num">REV 1</span><span class="rev-state fail">Failed · 3/6</span></button>
+      <button type="button" class="rev-btn active" id="rev-btn-2" data-rev="2"><span class="rev-num">REV 2</span><span class="rev-state pass">Repaired · 6/6</span></button>
+    </div>
+    <div class="rev-empty-state" id="rev-empty-state">
+      <p style="margin:0 0 10px;font-size:12px;color:var(--muted)">Clean workspace. No revisions evaluated yet. Run the autonomous pipeline to compile OpenCASCADE geometry and verify DRC constraints.</p>
+      <button type="button" class="text-button" id="start-pipeline-btn" style="width:100%;text-align:center;padding:8px 12px;background:rgba(43,119,112,0.12);border:1px solid rgba(43,119,112,0.3);border-radius:6px;color:var(--accent);font-weight:600">⚡ Synthesize &amp; Run Pipeline</button>
+    </div>
+    <div class="rev-diff-summary rev-specs-summary" id="rev-diff-summary" style="display:none"></div>
+    <div class="reflection-causal-callout" id="reflection-causal-callout" style="display:none"></div>
+  </div>
+  <div class="agent-terminal" id="agent-terminal" style="display:none">
+    <div class="agent-terminal-header">
+      <span class="terminal-dot red"></span>
+      <span class="terminal-dot yellow"></span>
+      <span class="terminal-dot green"></span>
+      <span class="terminal-title">agent@cadent: ~/pipeline</span>
+      <span class="terminal-status active" id="terminal-status">RUNNING</span>
+    </div>
+    <div class="agent-terminal-body" id="agent-terminal-body"></div>
+  </div>
+  <div class="run-heading" hidden><span class="agent-dot">✳</span><b>AutoCadent</b><span class="mono small" id="run-label">CLEAN DRAFT</span></div>
+  <div id="activity" aria-live="polite"></div>
+  <button id="replay-btn" class="text-button" style="display:none">↺ Inspect failure &amp; repair</button>
+  <div class="agent-chat-spine" id="agent-copilot-messages"></div>
+  <div class="scope-note"><span>ⓘ</span><p>Parametric CAD solids evaluated via OpenCASCADE. Signals routed with KiCad 8.0 DRC.</p></div>
+</div>
+<form id="brief-form" class="composer" onsubmit="return false;">
+  <label for="brief" class="composer-label">Design Copilot (GLM-4.7-Flash)</label>
+  <textarea id="brief" placeholder="Message the agent, or type / for commands…" aria-controls="slash-menu" aria-autocomplete="list" aria-expanded="false" rows="2" maxlength="1500"></textarea>
+  <div id="slash-menu" class="slash-menu" role="listbox" aria-label="Design commands" hidden></div>
+  <div class="composer-bottom">
+    <span class="mono small">✳ <span id="composer-mode">GLM-4.7-FLASH ONLINE</span></span>
+    <button aria-label="Submit design brief" type="submit" id="submit-brief">↑</button>
+  </div>
+  <p id="brief-feedback" role="status"></p>
+</form>
+</aside>
 <div class="resize-handle" id="resize-agent" role="separator" aria-label="Resize agent panel" tabindex="0"></div>
-<section class="design-panel"><nav class="tabs" aria-label="Design views"><a id="back-dashboard" class="back-link" href="#/dashboard">← Dashboard</a><div class="tabs-nav-group"><button data-tab="preview" class="active">◉ <span>Explorer</span></button><button data-tab="simulation">▷ <span>Motion lab</span></button></div><div class="tabs-actions"><button id="export-btn" class="tab-export-btn" title="Export build assets">↓ <span>Export build</span></button><span class="tab-end mono">mm</span></div></nav>
+<section class="design-panel"><nav class="tabs" aria-label="Design views"><a id="back-dashboard" class="back-link" href="#/dashboard">← Dashboard</a><div class="tabs-nav-group"><button data-tab="preview" class="active">◉ <span>Explorer</span></button><button data-tab="simulation">▷ <span>Motion lab</span></button></div><div class="tabs-actions"><button id="open-studio-btn" class="outline-button" title="Open Design Agent Studio">⚡ <span>Agent Studio</span></button><button id="export-btn" class="tab-export-btn" title="Export build assets">↓ <span>Export build</span></button><span class="tab-end mono">mm</span></div></nav>
 <div id="design-mode" hidden><span class="design-mode-label">◱ DESIGN · <b id="design-mode-name"></b></span><span class="design-mode-note">Saved in this browser only — no server copy.</span><span class="design-mode-actions"><button id="design-save-rev" class="text-button">⬇ Save local revision</button><button id="design-export" class="text-button">⇩ Export bundle</button><button id="design-close" class="text-button">✕ Close</button></span></div>
 <div class="alternate-view dashboard-view landing" id="dashboard-view"><div id="dashboard"></div></div>
-<div class="alternate-view explorer-view" id="explorer-view" hidden>
-<div class="explorer-mode-toggle" id="explorer-mode-toggle" title="Toggle fullscreen mode (F11)">
-  <button class="mode-btn" id="explorer-sidebar-btn" title="Sidebar mode">◧</button>
-  <button class="mode-btn active" id="explorer-fullscreen-btn" title="Fullscreen mode">⛶</button>
+<div class="alternate-view studio-view" id="studio-view" hidden>
+  <div class="studio-topbar">
+    <div class="studio-brand">
+      <span class="eyebrow" id="studio-eyebrow">AUTOCADENT / AGENT STUDIO</span>
+      <h2 id="studio-title">Design Intelligence Studio</h2>
+      <span class="agent-model-pill" id="studio-model-pill" title="Zhipu GLM-4.7-Flash on Tensormux"><span class="pulse-dot"></span><b>GLM-4.7-Flash</b></span>
+    </div>
+      <div class="studio-topbar-actions">
+        <button type="button" id="studio-back-btn" class="outline-button">← Back to 3D CAD</button>
+      </div>
+  </div>
+  <div class="studio-layout">
+    <aside class="studio-sidebar">
+      <div class="studio-sidebar-section">
+        <span class="eyebrow">AGENT WORKFLOW PIPELINE</span>
+        <div id="studio-live-feed" class="studio-live-feed"><p class="field-hint" style="margin:0">Idle — each step appears here as the agent works.</p></div>
+      </div>
+      <div class="studio-sidebar-section" id="studio-roles-section">
+        <span class="eyebrow">ROLES</span>
+        <div id="studio-roles" class="studio-roles"><p class="field-hint" style="margin:0">Idle — roles light up as the agent delegates.</p></div>
+      </div>
+      <div class="studio-sidebar-section" id="studio-memory-section">
+        <span class="eyebrow">MEMORY</span>
+        <div id="studio-memory-summary"><p class="field-hint" style="margin:0">No heuristics memorized yet.</p></div>
+        <button type="button" id="studio-memory-expand" class="text-button" hidden>Expand memory ▾</button>
+        <div id="studio-memory-full" hidden>
+          <div class="mem-learn-panel">
+            <span class="eyebrow">LEARNING LOOP · THIS WORKSPACE</span>
+            <canvas id="studio-mem-curve-err" height="72"></canvas>
+            <div class="mem-learn-stat"><span>Tool error rate</span><b id="studio-mem-err-val">—</b></div>
+            <canvas id="studio-mem-curve-rules" height="72"></canvas>
+            <div class="mem-learn-stat"><span>Heuristics memorized</span><b id="studio-mem-rules-val">0</b></div>
+            <p class="field-hint" id="studio-mem-curve-caption" style="margin:6px 0 10px">Updates as this chat uses MCP tools and reflects.</p>
+          </div>
+          <div id="studio-memory-full-rules" class="memory-rules-container"></div>
+        </div>
+      </div>
+      <div class="studio-sidebar-section" id="studio-rev-section">
+        <span class="eyebrow">EVALUATED REVISIONS</span>
+        <div class="rev-toggle-group" id="studio-rev-toggle-group" style="display:none">
+          <button type="button" class="rev-btn" id="studio-rev-btn-1"><span class="rev-num">REV 1</span><span class="rev-state fail">Failed · 3/6</span></button>
+          <button type="button" class="rev-btn active" id="studio-rev-btn-2"><span class="rev-num">REV 2</span><span class="rev-state pass">Repaired · 6/6</span></button>
+        </div>
+        <div class="rev-empty-state" id="studio-rev-empty-state">
+          <p style="margin:0 0 10px;font-size:12px;color:var(--muted)">Clean workspace. No revisions evaluated yet.</p>
+        </div>
+        <div class="rev-diff-summary" id="studio-diff-summary" style="display:none"></div>
+      </div>
+    </aside>
+    <main class="studio-stage">
+      <section class="studio-panel" id="studio-panel-learning" hidden>
+        <div class="studio-panel-head">
+          <span class="eyebrow">SELF-IMPROVING ENGINE · TRACK EVALUATION</span>
+          <h3>Telemetry &amp; Learning Curves: Output Improvement Over Time</h3>
+          <p class="field-hint">Empirical proof of the agent learning from third-party tools (OpenCASCADE &amp; KiCad), growing memory, and balancing cost-effectiveness with speed.</p>
+        </div>
+        <div class="curves-grid">
+          <div class="curve-card"><div class="curve-title">Error rate ↓</div><canvas id="studio-chart-error" height="100"></canvas><div class="curve-stat"><b class="pass" id="curve-stat-error">—</b> <small id="curve-stat-error-sub">run the loop for measured data</small></div></div>
+          <div class="curve-card"><div class="curve-title">Check pass rate ↑</div><canvas id="studio-chart-pass" height="100"></canvas><div class="curve-stat"><b class="pass" id="curve-stat-pass">—</b> <small id="curve-stat-pass-sub">run the loop for measured data</small></div></div>
+          <div class="curve-card"><div class="curve-title">Execution duration ↓</div><canvas id="studio-chart-duration" height="100"></canvas><div class="curve-stat"><b class="pass" id="curve-stat-duration">—</b> <small id="curve-stat-duration-sub">real kernel latency per revision</small></div></div>
+          <div class="curve-card"><div class="curve-title">Token cost-efficiency ↑</div><canvas id="studio-chart-tokens" height="100"></canvas><div class="curve-stat"><b class="pass" id="curve-stat-tokens">—</b> <small id="curve-stat-tokens-sub">counts are backend estimates</small></div></div>
+        </div>
+        <div class="learning-bench-table" id="studio-bench-table"></div>
+      </section>
+      <section class="studio-panel" id="studio-panel-subagents" hidden>
+        <div class="studio-panel-head">
+          <span class="eyebrow">MULTI-AGENT COLLABORATION</span><h3>5 Specialized Engineering Roles</h3><p class="field-hint">Autonomous role assignment, tool invocation, and reflection pipeline.</p>
+        </div>
+        <div class="subagents-dag" id="studio-subagents-dag"></div>
+        <div class="subagent-event-stream">
+          <span class="eyebrow">AGENT TRANSITION LOG</span>
+          <div id="studio-subagent-events" class="events-list"></div>
+        </div>
+      </section>
+      <section class="studio-panel" id="studio-panel-memory" hidden>
+        <div class="studio-panel-head">
+          <span class="eyebrow">SQLITE PERSISTENT MEMORY</span><h3>Heuristics &amp; Episodic Traces</h3><p class="field-hint">Causal rules extracted from physical tools with evidence provenance.</p>
+        </div>
+        <div class="memory-bank-tabs" role="tablist">
+          <button type="button" class="studio-mem-subtab active" data-smem="heuristics">Active Heuristics</button>
+          <button type="button" class="studio-mem-subtab" data-smem="episodes">Episodic Traces</button>
+          <button type="button" class="studio-mem-subtab" data-smem="cache">Tool Cache</button>
+        </div>
+        <div id="studio-memory-heuristics" class="memory-rules-container"></div>
+        <div id="studio-memory-episodes" class="memory-episodes-container" hidden></div>
+        <div id="studio-memory-cache" class="memory-cache-container" hidden></div>
+      </section>
+      <section class="studio-panel" id="studio-panel-tools" hidden>
+        <div class="studio-panel-head">
+          <span class="eyebrow">THIRD-PARTY TOOLING</span><h3>MCP Bridges &amp; Compilers</h3><p class="field-hint">Actual CAD and EDA integrations. No mocked or faked data.</p>
+        </div>
+        <div class="mcp-servers-grid" id="studio-mcp-servers"></div>
+        <div class="mcp-invocation-log">
+          <span class="eyebrow">LIVE TOOL TRACES</span>
+          <div id="studio-mcp-traces"></div>
+        </div>
+      </section>
+      <section class="studio-panel active" id="studio-panel-chat">
+        <div id="studio-context-strip" class="context-strip mono small">connecting…</div>
+        <div class="studio-chat-container">
+          <div class="studio-chat-history" id="studio-chat-messages"></div>
+        </div>
+        <div class="studio-dock" id="studio-dock">
+          <form id="studio-dock-form" class="studio-dock-form" onsubmit="return false;">
+            <div class="studio-dock-input-row">
+              <span class="studio-dock-pill"><span class="pulse-dot"></span><b>GLM-4.7-Flash</b></span>
+              <input type="text" id="studio-dock-input" placeholder="Message the copilot or type / for commands…" maxlength="1500" autocomplete="off" />
+              <button type="submit" id="studio-dock-submit" class="studio-dock-btn" aria-label="Send message">Send ↑</button>
+            </div>
+          </form>
+        </div>
+      </section>
+      <aside id="agent-artifact" class="agent-artifact" hidden aria-label="Agent artifact">
+        <div class="artifact-head"><div><span class="eyebrow">AGENT ARTIFACT</span><b id="agent-artifact-title">Artifact</b></div><button id="agent-artifact-close" class="icon-btn" aria-label="Dismiss artifact">✕</button></div>
+        <div id="agent-artifact-body" class="artifact-body"></div>
+      </aside>
+    </main>
+  </div>
 </div>
-<div class="explorer-chat-layout">
-<div class="explorer-chat-header"><span class="eyebrow">AUTOCADENT / EXPLORER</span><h1>Agent intelligence.</h1><p>Talk to the agent — ask about revisions, what it learned, or how it's improving.</p></div>
-<div class="explorer-chat-spine" id="explorer-chat-messages"></div>
-<form class="explorer-chat-composer" id="explorer-chat-form"><label for="explorer-chat-input" class="sr-only">Ask the agent</label><textarea id="explorer-chat-input" placeholder="Ask about a revision, what you learned, or type / for commands…" rows="2" maxlength="1500"></textarea><div class="explorer-composer-bottom"><span class="mono small">✳ <span id="explorer-composer-mode">AGENT</span></span><button type="submit" id="explorer-chat-submit" aria-label="Send message">↑</button></div><div id="explorer-chip-suggestions" class="explorer-chips"></div></form>
-</div>
-<div class="explorer-full-panels" id="explorer-full-panels" hidden>
-<button class="explorer-close-panels" id="explorer-close-panels" title="Back to chat">✕ Close panels</button>
-<section class="explorer-panel" id="explorer-agent-graph-panel"><div class="explorer-panel-head"><span class="eyebrow">SUB-AGENT EXECUTION GRAPH</span><span class="mono small" id="agent-graph-status">Loading…</span></div><div class="agent-graph-wrap"><canvas id="agent-graph-canvas" aria-label="Sub-agent execution hierarchy and live status"></canvas><div id="agent-graph-legend"></div></div><div id="agent-event-log" class="agent-event-log"><span class="eyebrow">EVENT LOG</span><div id="agent-event-entries"><p class="field-hint">No events yet.</p></div></div></section>
-<section class="explorer-panel" id="explorer-learning-panel"><div class="explorer-panel-head"><span class="eyebrow">LEARNING CURVES</span><span class="mono small" id="learning-status">Loading…</span></div><div class="learning-charts"><div class="learning-chart-box"><span class="chart-label">Error rate ↓</span><canvas id="chart-error-rate"></canvas></div><div class="learning-chart-box"><span class="chart-label">Check pass rate ↑</span><canvas id="chart-pass-rate"></canvas></div><div class="learning-chart-box"><span class="chart-label">Execution duration ↓</span><canvas id="chart-duration"></canvas></div><div class="learning-chart-box"><span class="chart-label">Token cost-efficiency ↑</span><canvas id="chart-tokens"></canvas></div></div><div id="learning-comparison" class="learning-comparison"></div></section>
-<section class="explorer-panel" id="explorer-memory-panel"><div class="explorer-panel-head"><span class="eyebrow">MEMORY &amp; HEURISTICS BANK</span><span class="mono small" id="memory-status">Loading…</span></div><div class="memory-tabs" role="tablist"><button class="memory-tab active" data-memory-tab="heuristics">Heuristics</button><button class="memory-tab" data-memory-tab="episodes">Episodes</button><button class="memory-tab" data-memory-tab="adaptation">Adaptation</button></div><div class="memory-content" id="memory-heuristics-panel"><div id="memory-heuristics-list"><p class="field-hint">No heuristics acquired yet.</p></div></div><div class="memory-content" id="memory-episodes-panel" hidden><div id="memory-episodes-list"><p class="field-hint">No episodic traces yet.</p></div></div><div class="memory-content" id="memory-adaptation-panel" hidden><div id="memory-adaptation-list"><p class="field-hint">No adaptation data yet.</p></div></div></section>
-</div>
-</div>
-<div class="canvas-wrap" id="preview-view" hidden><div class="canvas-title"><span class="eyebrow" id="canvas-eyebrow">ROVE–1 / EXPLORER PLATFORM</span><span class="mono small" id="geometry-caption">ACTUAL CADQUERY GEOMETRY</span></div><div class="canvas-corner"><div class="model-switch" role="group" aria-label="Example model"><button data-model="rove1" class="active" aria-pressed="true">Rove–1</button><button data-model="orion" aria-pressed="false">Orion</button></div><span class="status-dot"></span><span id="revision-label">REV -- · LOADING</span></div><div id="viewport" aria-label="Interactive 3D rover assembly. Drag to orbit, scroll to zoom." role="img"><div id="view-status" class="view-status" hidden></div></div><button id="retry-model" type="button" hidden>Retry model</button><div id="part-tip" class="part-tip" hidden></div><div class="model-label"><span class="crosshair">+</span><span>60 × 40 mm<br><b>SIGNAL BREAKOUT</b></span></div><div class="view-tools"><button id="reset-view" title="Reset camera" aria-label="Reset camera">⌖</button><button id="wireframe" title="Toggle translucent X-ray" aria-label="Toggle translucent X-ray" aria-pressed="false">◈</button><button id="explode" title="Explode assembly into grid" aria-label="Explode assembly into grid" aria-pressed="false">⤢</button><button id="deploy-btn" title="Scene environment" aria-label="Scene environment" aria-pressed="false">▣</button><span></span><button id="zoom-in" aria-label="Zoom in">＋</button><button id="zoom-out" aria-label="Zoom out">−</button></div><div id="env-picker" class="env-picker" hidden><span class="eyebrow">ENVIRONMENT</span><span><button data-env="studio" class="active">Studio</button><button data-env="lab">Lab</button><button data-env="outdoor">Outdoor</button><button data-env="night">Night</button></span></div><div class="canvas-bottom"><span class="axis">Z <b>↑</b> <i>Y ↗</i><em>X →</em></span><span class="mono">DRAG TO ORBIT <b>·</b> DOUBLE CLICK PART TO ISOLATE <b>·</b> SCROLL TO ZOOM</span><span class="scale"><i id="scale-bar"></i><span id="scale-label">—</span></span></div></div>
+<div class="canvas-wrap" id="preview-view" hidden><div class="canvas-title"><span class="eyebrow" id="canvas-eyebrow">STANDALONE PLATFORM / WORKBENCH</span><span class="mono small" id="geometry-caption">STANDALONE PLATFORM · CLEAN CANVAS (0 PARTS)</span></div>
+<div id="preview-overlay" class="preview-overlay" hidden><img id="preview-overlay-img" alt="Generated design preview" /></div><div class="canvas-corner"><div class="model-switch" role="group" aria-label="Example model" hidden><button data-model="rove1" aria-pressed="false">Rove–1</button><button data-model="orion" aria-pressed="false">Orion</button></div><span class="status-dot"></span><span id="revision-label">DRAFT · UNEVALUATED</span></div><div id="viewport" aria-label="Interactive 3D assembly viewport. Drag to orbit, scroll to zoom." role="img"><div id="view-status" class="view-status" hidden></div></div><button id="retry-model" type="button" hidden>Retry model</button><div id="part-tip" class="part-tip" hidden></div><div class="model-label"><span class="crosshair">+</span><span>60 × 40 mm<br><b>SIGNAL BREAKOUT</b></span></div><div class="view-tools"><button id="reset-view" title="Reset camera" aria-label="Reset camera">⌖</button><button id="wireframe" title="Toggle translucent X-ray" aria-label="Toggle translucent X-ray" aria-pressed="false">◈</button><button id="explode" title="Explode assembly into grid" aria-label="Explode assembly into grid" aria-pressed="false">⤢</button><button id="deploy-btn" title="Scene environment" aria-label="Scene environment" aria-pressed="false">▣</button><span></span><button id="zoom-in" aria-label="Zoom in">＋</button><button id="zoom-out" aria-label="Zoom out">−</button></div><div id="env-picker" class="env-picker" hidden><span class="eyebrow">ENVIRONMENT</span><span><button data-env="studio" class="active">Studio</button><button data-env="lab">Lab</button><button data-env="outdoor">Outdoor</button><button data-env="night">Night</button></span></div><div class="canvas-bottom"><span class="axis">Z <b>↑</b> <i>Y ↗</i><em>X →</em></span><span class="mono">DRAG TO ORBIT <b>·</b> DOUBLE CLICK PART TO ISOLATE <b>·</b> SCROLL TO ZOOM</span><span class="scale"><i id="scale-bar"></i><span id="scale-label">—</span></span></div></div>
 <div class="alternate-view" id="files-view" hidden><div class="view-heading"><span class="eyebrow">BUILD OUTPUTS</span><h2>From intent to something tangible.</h2><p>Real generated files. Source and measurements travel with the geometry.</p></div><div id="file-list"></div></div>
 <div class="alternate-view" id="designs-view" hidden><div class="view-heading"><span class="eyebrow">DESIGNS</span><h2>Your designs, in this browser.</h2><p>Everything here lives in your browser's local storage — nothing is uploaded, no account exists. Import a design bundle from a file, create a new design from the parametric template, edit dimensions and save local revisions, then export the bundle.</p></div><div class="designs-toolbar"><label class="outline-button">Import design bundle<input id="design-import" type="file" accept=".json,application/json" hidden></label><button class="outline-button" id="design-new">＋ New design</button><span class="designs-count mono" id="designs-count"></span></div><div id="designs" class="designs-grid"></div></div>
 <div class="alternate-view board-view" id="schematic-view" hidden><div class="view-heading"><span class="eyebrow">ELECTRICAL / CONNECTIVITY</span><h2>Four signals. One small board.</h2><p>Connectivity diagram derived from the generated board nets. External power, ground, SDA and SCL pass between J1 and J2.</p></div><div id="schematic"></div><p class="board-caution">Signal breakout only. No MCU, motor driver, power regulation, or I²C pull-ups. This diagram is not a KiCad schematic.</p></div>
@@ -35,7 +182,8 @@
 <section id="simulation-view" class="simulation-view" hidden><div class="sim-viewport-wrapper"><div id="sim-viewport" class="simulation-viewport" role="img" aria-label="3D physics and locomotion simulation viewport"></div><div class="sim-controls-panel"><div class="sim-control-group"><span class="sim-label">ROBOT</span><div class="sim-btn-group" id="sim-robot-select"><button id="sim-robot-orion" class="sim-btn active" data-sim-robot="orion">Orion Quadruped</button><button id="sim-robot-rove1" class="sim-btn" data-sim-robot="rove1">Rove–1 Rover</button></div></div><div class="sim-control-group"><span class="sim-label">TERRAIN</span><div class="sim-btn-group" id="sim-terrain-select"><button data-terrain="martian" class="sim-btn">Martian Surface</button><button data-terrain="lunar" class="sim-btn">Lunar Surface</button><button data-terrain="proving_ground" class="sim-btn active">Proving Ground</button></div></div><div class="sim-control-group"><span class="sim-label">PLAYBACK</span><div class="sim-btn-group"><button id="sim-play-pause" class="sim-btn active" title="Play/Pause simulation">⏸ Pause</button><button id="sim-speed-half" class="sim-btn" data-speed="0.5">0.5×</button><button id="sim-speed-1x" class="sim-btn active" data-speed="1.0">1×</button><button id="sim-speed-2x" class="sim-btn" data-speed="2.0">2×</button><button id="sim-reset" class="sim-btn" title="Reset simulation">↺</button></div></div><div class="sim-control-group"><span class="sim-label">CAMERA</span><div class="sim-btn-group" id="sim-camera-presets"><button data-cam="iso" class="sim-btn active">Isometric</button><button data-cam="top" class="sim-btn">Top</button><button data-cam="side" class="sim-btn">Side</button><button data-cam="chase" class="sim-btn">Chase</button></div></div></div><div class="sim-telemetry-panel" id="sim-telemetry"><div class="sim-telemetry-header"><span class="status-dot"></span><span class="mono">KINEMATICS TELEMETRY</span></div><div class="sim-telemetry-grid"><div class="sim-telem-item"><span class="sim-telem-label">GAIT PHASE</span><b class="sim-telem-val mono" id="telem-phase">0.00 rad</b></div><div class="sim-telem-item"><span class="sim-telem-label">VELOCITY</span><b class="sim-telem-val mono" id="telem-velocity">150 mm/s</b></div><div class="sim-telem-item"><span class="sim-telem-label">STRIDE HEIGHT</span><b class="sim-telem-val mono" id="telem-stride">25.0 mm</b></div><div class="sim-telem-item"><span class="sim-telem-label">TERRAIN</span><b class="sim-telem-val mono" id="telem-terrain">Proving Ground Grid</b></div></div><div class="sim-contacts-row"><span class="sim-telem-label">CONTACTS</span><div class="sim-contacts" id="sim-contacts"><span class="contact-pill on" id="contact-fl">FL</span><span class="contact-pill" id="contact-fr">FR</span><span class="contact-pill" id="contact-bl">BL</span><span class="contact-pill on" id="contact-br">BR</span></div></div></div><div class="sim-bottom-bar"><span class="axis">Z <b>↑</b> <i>Y ↗</i><em>X →</em></span><span class="mono">DRAG TO ORBIT · SCROLL TO ZOOM · SHIFT+DRAG TO PAN</span><span class="scale"><i id="sim-scale-bar"></i><span id="sim-scale-label">200 mm</span></span></div></div></section><div id="parts-timeline"><div class="timeline-head"><span class="eyebrow">ASSEMBLY</span><span class="mono small" id="timeline-count"></span><button id="timeline-toggle" class="text-button" aria-expanded="true">Hide ▾</button></div><div class="assembly-dock"><label class="part-search"><span class="sr-only">Search parts</span><input id="part-search" type="search" placeholder="Search parts…"></label><label><span class="sr-only">System layer</span><select id="part-layer"><option value="all">All systems</option><option value="structure">Structure</option><option value="mobility">Mobility</option><option value="electronics">Electronics</option></select></label><div class="explode-slider"><label for="explode-range">Explode assembly <output id="explode-value">0%</output></label><input id="explode-range" type="range" min="0" max="100" value="0"><div><span>Assembled</span><span>Grid Inventory</span></div></div><button id="assembly-reset" type="button" class="text-button">↺ Reset</button></div><div class="timeline-chips-wrap"><button id="chips-scroll-left" class="chips-scroll-arrow left" type="button" aria-label="Scroll parts left" hidden>‹</button><div id="timeline-chips"></div><button id="chips-scroll-right" class="chips-scroll-arrow right" type="button" aria-label="Scroll parts right">›</button></div></div>
 </section>
 <div class="resize-handle" id="resize-props" role="separator" aria-label="Resize project panel" tabindex="0"></div>
-<aside class="properties-panel"><div class="panel-heading"><h2>Inspector</h2><div class="inspector-tabs" role="tablist"><button class="insp-tab active" data-insp-tab="parts" title="Assembly parts">⌖ Parts</button><button class="insp-tab" data-insp-tab="files" title="Build outputs & files">▤ Files</button><button class="insp-tab" data-insp-tab="spec" title="Dimensions & constraints">⚙ Spec</button></div></div><div class="property-content"><div class="insp-panel" id="insp-parts-panel"><div class="property-section assembly-explorer" id="assembly-explorer"><div id="assembly-summary"><p class="field-hint">Loading geometry…</p></div><div id="part-details" hidden></div></div></div><div class="insp-panel" id="insp-files-panel" hidden><div class="insp-files-head"><span class="eyebrow">BUILD OUTPUTS</span><p class="field-hint">Real generated files with geometry, source and measurements.</p></div><div id="inspector-file-list" class="inspector-file-list"></div></div><div class="insp-panel" id="insp-spec-panel" hidden><div class="project-name"><span class="project-state"><i></i><span id="project-state">Reading build evidence…</span></span></div><section class="spec-card"><div class="spec-card-head"><h4>Design dimensions</h4><span class="mono small">mm</span></div><p class="field-hint">Edit dimensions for your next live run.</p><div class="field-row"><label for="length">Chassis length</label><div><input id="length" type="number" min="120" max="180" step="1" placeholder="—"><span>mm</span></div></div><div class="field-row"><label for="width">Chassis width</label><div><input id="width" type="number" min="80" max="110" step="1" placeholder="—"><span>mm</span></div></div><div class="field-row"><label for="mast_height">Mast height</label><div><input id="mast_height" type="number" min="35" max="75" step="1" placeholder="—"><span>mm</span></div></div><div class="field-row static"><span>Board envelope</span><b>60 × 40 mm</b></div><div class="field-row static"><span>Material intent</span><b>PLA / PETG</b></div></section><section class="spec-card"><div class="spec-card-head"><h4>Acceptance criteria</h4><span class="mono small">Solid CAD</span></div><div class="constraint"><span>Chassis thickness</span><b id="crit-thick">≥ 2.4 <small>mm</small></b></div><div class="constraint"><span>Tray wall</span><b id="crit-wall">≥ 2.4 <small>mm</small></b></div><div class="constraint"><span>Board clearance</span><b id="crit-clear">≥ 0.8 <small>mm</small></b></div><p class="field-hint">Checked on solid geometry. Evaluated via OpenCASCADE kernel.</p></section><section class="spec-card toolchain"><div class="spec-card-head"><h4>Toolchain & verification</h4></div><div><span class="tool-icon">C</span><span>CadQuery<small>OpenCASCADE geometry</small></span><i></i></div><div><span class="tool-icon kicad">K</span><span>KiCad<small>Board + fabrication exports</small></span><i></i></div><button id="mcp-btn" class="text-button">MCP verification ↗</button></section></div></div></aside>
+<aside class="properties-panel"><div class="panel-heading"><h2>Inspector</h2><div class="inspector-tabs" role="tablist"><button class="insp-tab active" data-insp-tab="parts" title="Assembly parts">⌖ Parts</button><button class="insp-tab" data-insp-tab="files" title="Build outputs & files">▤ Files</button><button class="insp-tab" data-insp-tab="spec" title="Dimensions & constraints">⚙ Spec</button></div></div><div class="property-content"><div class="insp-panel" id="insp-parts-panel"><div class="property-section assembly-explorer" id="assembly-explorer"><div id="assembly-summary"><p class="field-hint">Loading geometry…</p></div><div id="part-details" hidden></div></div></div><div class="insp-panel" id="insp-files-panel" hidden><div class="insp-files-head"><span class="eyebrow">BUILD OUTPUTS</span><p class="field-hint">Real generated files with geometry, source and measurements.</p></div><div id="inspector-file-list" class="inspector-file-list"></div></div><div class="insp-panel" id="insp-spec-panel" hidden><div class="project-name"><span class="project-state"><i></i><span id="project-state">Reading build evidence…</span></span></div><section class="spec-card"><div class="spec-card-head"><h4>Design dimensions</h4><span class="mono small">mm</span></div><p class="field-hint">Edit dimensions for your next live run.</p><div class="field-row"><label for="length">Platform length</label><div><input id="length" type="number" min="120" max="180" step="1" placeholder="—"><span>mm</span></div></div><div class="field-row"><label for="width">Platform width</label><div><input id="width" type="number" min="80" max="110" step="1" placeholder="—"><span>mm</span></div></div><div class="field-row"><label for="mast_height">Enclosure depth</label><div><input id="mast_height" type="number" min="35" max="75" step="1" placeholder="—"><span>mm</span></div></div><div class="field-row static"><span>Board envelope</span><b>60 × 40 mm</b></div><div class="field-row static"><span>Material intent</span><b>PLA / PETG</b></div></section><section class="spec-card"><div class="spec-card-head"><h4>Acceptance criteria</h4><span class="mono small">Solid CAD</span></div><div class="constraint"><span>Baseplate thickness</span><b id="crit-thick">≥ 2.4 <small>mm</small></b></div><div class="constraint"><span>Enclosure sidewall</span><b id="crit-wall">≥ 2.4 <small>mm</small></b></div><div class="constraint"><span>PCB clearance</span><b id="crit-clear">≥ 0.8 <small>mm</small></b></div><p class="field-hint">Checked on solid geometry. Evaluated via OpenCASCADE kernel.</p></section><section class="spec-card toolchain"><div class="spec-card-head"><h4>Toolchain & verification</h4></div><div><span class="tool-icon">C</span><span>CadQuery<small>OpenCASCADE geometry</small></span><i></i></div><div><span class="tool-icon kicad">K</span><span>KiCad<small>Board + fabrication exports</small></span><i></i></div><button id="mcp-btn" class="text-button">MCP verification ↗</button></section></div></div></aside>
 </main>
-<dialog id="modal"><div class="modal-top"><span class="eyebrow" id="modal-eyebrow">AUTOCADENT / FIELD NOTES</span><button id="close-modal" aria-label="Close dialog">×</button></div><div id="modal-content"></div></dialog><div id="toast" role="status"></div><script type="module" src="app.js"></script>
+<dialog id="modal"><div class="modal-top"><span class="eyebrow" id="modal-eyebrow">AUTOCADENT / FIELD NOTES</span><button id="close-modal" aria-label="Close dialog">×</button></div><div id="modal-content"></div></dialog>
+<div id="toast" role="status"></div><script type="module" src="app.js"></script>
 </body></html>
