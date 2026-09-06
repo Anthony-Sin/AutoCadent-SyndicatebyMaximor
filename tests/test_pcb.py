@@ -23,6 +23,17 @@ KICAD_PYTHON = os.getenv("AUTOCADENT_KICAD_PYTHON", "/usr/bin/python3")
 MODEL_BOARD_SCRIPT = ROOT / "scripts" / "model_board.py"
 
 
+def _kicad_env():
+    """Build a subprocess env for /usr/bin/python3 that can find pcbnew.
+
+    uv run sets PYTHONHOME to its managed Python; that leaks into child
+    processes and makes system Python look for modules in the wrong place.
+    Drop it and keep PYTHONPATH (which carries the pcbnew directory).
+    """
+    env = {k: v for k, v in os.environ.items() if k != "PYTHONHOME"}
+    return env
+
+
 def run_model_board(spec_dict, out_dir):
     spec_path = out_dir / "pcb-spec.json"
     spec_path.write_text(json.dumps(spec_dict))
@@ -34,7 +45,7 @@ def run_model_board(spec_dict, out_dir):
         "--output",
         str(out_dir),
     ]
-    res = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    res = subprocess.run(cmd, capture_output=True, text=True, timeout=120, env=_kicad_env())
     return res
 
 
@@ -255,7 +266,7 @@ it.__class__.next = it.__class__.__next__
 assert hasattr(it, 'next')
 print('SWIG iterator next verified')
 """
-        res = subprocess.run([KICAD_PYTHON, "-c", code], capture_output=True, text=True)
+        res = subprocess.run([KICAD_PYTHON, "-c", code], capture_output=True, text=True, env=_kicad_env())
         assert res.returncode == 0
         assert "SWIG iterator next verified" in res.stdout
 
@@ -273,7 +284,7 @@ for p in pads:
 assert refs == {{'J1', 'J2', 'H1', 'H2', 'H3', 'H4'}}
 print('Pad parent references verified:', sorted(refs))
 """
-        res = subprocess.run([KICAD_PYTHON, "-c", code], capture_output=True, text=True)
+        res = subprocess.run([KICAD_PYTHON, "-c", code], capture_output=True, text=True, env=_kicad_env())
         assert res.returncode == 0
         assert "Pad parent references verified" in res.stdout
 

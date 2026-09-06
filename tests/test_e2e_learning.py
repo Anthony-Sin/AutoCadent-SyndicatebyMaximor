@@ -88,6 +88,11 @@ HAS_LEARNING_API = any(r.path.startswith("/api/learning") for r in api.app.route
 HAS_GRAPH_API = any(r.path == "/api/agents/graph" for r in api.app.routes)
 
 
+def _kicad_env():
+    """Strip PYTHONHOME (set by uv run) so /usr/bin/python3 finds pcbnew."""
+    return {k: v for k, v in os.environ.items() if k != "PYTHONHOME"}
+
+
 def run_kicad_model_board(spec_dict: dict, out_dir: Path) -> subprocess.CompletedProcess:
     """Helper to run scripts/model_board.py with system python and kicad-cli."""
     spec_path = out_dir / "pcb-spec.json"
@@ -100,7 +105,7 @@ def run_kicad_model_board(spec_dict: dict, out_dir: Path) -> subprocess.Complete
         "--output",
         str(out_dir),
     ]
-    return subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    return subprocess.run(cmd, capture_output=True, text=True, timeout=120, env=_kicad_env())
 
 
 # ===========================================================================
