@@ -63,25 +63,33 @@ def generate(spec, out):
         if kicad_mod_dir:
             fp_lib_table.write_text(f'(fp_lib_table (version 7)(libs (lib (name KiCad)(type KiCad)(uri "{kicad_mod_dir}")(options "")(descr ""))))\n')
     gerber_dir=out/'gerbers'; gerber_dir.mkdir(parents=True,exist_ok=True)
-    # Native pcbnew gerber/drill export (kicad-cli 8.0 gerber export exits 4 on CI runners).
+    # Native pcbnew gerber/drill export — defensive across KiCad API versions.
     saved=k.LoadBoard(str(path))
     opts=k.PCB_PLOT_PARAMS()
-    opts.SetOutputDirectory(str(gerber_dir))
-    opts.SetFormat(k.PLOT_FORMAT_GERBER)
-    opts.SetUseGerberAttributes(True)
-    opts.SetPlotFrameRef(False)
-    pc=k.PLOT_CONTROLLER(saved,opts)
+    for attr,val in [('SetOutputDirectory',str(gerber_dir)),('SetFormat',k.PLOT_FORMAT_GERBER),('SetUseGerberAttributes',True),('SetPlotFrameRef',False)]:
+        fn=getattr(opts,attr,None)
+        if fn: fn(val)
+    # PLOT_CONTROLLER: try (board,params), then (board)+SetPlotParams, then (board) alone.
+    try:
+        pc=k.PLOT_CONTROLLER(saved,opts)
+    except TypeError:
+        pc=k.PLOT_CONTROLLER(saved)
+        sp=getattr(pc,'SetPlotParams',None)
+        if sp: sp(opts)
     for layer_id,layer_name in [(k.F_Cu,'F.Cu'),(k.F_SilkS,'F.SilkS'),(k.Edge_Cuts,'Edge.Cuts')]:
         pc.SetLayer(layer_id)
         pc.OpenPlotfile(layer_name,False,f'{layer_name}.gbr')
         pc.PlotLayer()
         pc.ClosePlot()
-    # Excellon drill
+    del pc
+    # Excellon drill — defensive API
     ew=k.EXCELLON_WRITER(saved)
-    ew.SetFormat(True)
-    ew.SetOptions(False,False,k.VECTOR2I(0,0),False)
-    ew.CreateDrillandMapFilesSet(str(gerber_dir),False,False)
-    del pc,ew
+    for attr,args in [('SetFormat',(True,)),('SetOptions',(False,False,k.VECTOR2I(0,0),False))]:
+        fn=getattr(ew,attr,None)
+        if fn: fn(*args)
+    create_fn=getattr(ew,'CreateDrillandMapFilesSet',None) or getattr(ew,'CreateDrillAndMapFilesSet',None)
+    if create_fn: create_fn(str(gerber_dir),False,False)
+    del ew
     # DRC and SVG via kicad-cli
     commands=[['pcb','drc','--format','json','-o',str(out/'drc.json'),str(path)],['pcb','export','svg','--layers','F.Cu,F.SilkS,Edge.Cuts','--page-size-mode','2','--mode-single','-o',str(out/'board.svg'),str(path)]]
     for args in commands:
