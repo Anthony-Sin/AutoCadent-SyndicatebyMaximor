@@ -222,9 +222,9 @@ class TestKiCadBoardGeneration:
         files = list(gerber_dir.iterdir())
         file_names = [f.name for f in files]
         # Must contain copper, silk, edge cuts, and drill
-        assert any("F_Cu" in fn or "F.Cu" in fn for fn in file_names)
-        assert any("Edge_Cuts" in fn or "Edge.Cuts" in fn for fn in file_names)
-        assert any(".drl" in fn for fn in file_names)
+        assert any("F_Cu" in fn or "F.Cu" in fn for fn in file_names), f"No F_Cu file in {file_names}"
+        assert any("Edge_Cuts" in fn or "Edge.Cuts" in fn for fn in file_names), f"No Edge_Cuts file in {file_names}"
+        assert any(".drl" in fn for fn in file_names), f"No .drl file in {file_names}"
 
     def test_bom_csv_contents(self, standard_board):
         bom_file = standard_board["dir"] / "bom.csv"

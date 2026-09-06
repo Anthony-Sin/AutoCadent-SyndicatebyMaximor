@@ -78,15 +78,26 @@ def generate(spec, out):
         pc.ClosePlot()
     del pc
     # Excellon drill — defensive API
-    ew=k.EXCELLON_WRITER(saved)
-    for attr,args in [('SetFormat',(True,)),('SetOptions',(False,False,k.VECTOR2I(0,0),False))]:
-        fn=getattr(ew,attr,None)
-        if fn: fn(*args)
-    create_fn=getattr(ew,'CreateDrillandMapFilesSet',None) or getattr(ew,'CreateDrillAndMapFilesSet',None)
-    if create_fn: create_fn(str(gerber_dir),False,False)
-    del ew
-    # DRC and SVG via kicad-cli
-    commands=[['pcb','drc','--format','json','-o',str(out/'drc.json'),str(path)],['pcb','export','svg','--layers','F.Cu,F.SilkS,Edge.Cuts','--page-size-mode','2','-o',str(out/'board.svg'),str(path)]]
+    try:
+        ew=k.EXCELLON_WRITER(saved)
+        fmt_fn=getattr(ew,'SetFormat',None)
+        if fmt_fn: fmt_fn(True)
+        opt_fn=getattr(ew,'SetOptions',None)
+        if opt_fn: opt_fn(False,False,k.VECTOR2I(0,0),False)
+        # Try multiple method names for drill file creation
+        for method_name in ['CreateDrillandMapFilesSet','CreateDrillAndMapFilesSet','CreateDrillFile']:
+            fn=getattr(ew,method_name,None)
+            if fn:
+                try:
+                    fn(str(gerber_dir),False,False)
+                    break
+                except Exception:
+                    continue
+        del ew
+    except Exception:
+        pass
+    # DRC, drill, and SVG via kicad-cli
+    commands=[['pcb','drc','--format','json','-o',str(out/'drc.json'),str(path)],['pcb','export','drill','-o',str(gerber_dir)+'/',str(path)],['pcb','export','svg','--layers','F.Cu,F.SilkS,Edge.Cuts','--page-size-mode','2','-o',str(out/'board.svg'),str(path)]]
     for args in commands:
         r=subprocess.run(['kicad-cli',*args],capture_output=True,text=True,timeout=45)
         if r.returncode!=0:
