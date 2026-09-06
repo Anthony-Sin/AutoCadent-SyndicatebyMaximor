@@ -1,90 +1,133 @@
 # AutoCadent
 
-**Engineering, in the loop.** A robot CAD workspace for Track 1: Automated Agent Engineering at Syndicate by Maximor.
+**Engineering, in the loop.**
 
-[Open the workspace](https://anthony-sin.github.io/AutoCadent-SyndicatebyMaximor/) · [4-minute demo](docs/DEMO.md) · [Architecture and scope](docs/ARCHITECTURE.md) · [MCP setup](docs/MCP.md)
+A self-improving **robot CAD + PCB studio**. You give it a hardware brief. Agents call **real CadQuery and KiCad tools**, measure the geometry, fail in public, write the reason into memory, and do not make the same thin wall twice.
 
-AutoCadent turns a bounded rover specification into real CadQuery solids, measures constraints, repairs failures, and exports the result. The ivory engineering workspace combines an agent activity panel, interactive assembly anatomy, files, board connectivity/layout, editable dimensions and measured evidence.
+This is **not** a chatbot that pastes a screenshot of a robot. Compiling a solid is not the same as designing one.
+
+**[Open the live workspace](https://anthony-sin.github.io/AutoCadent-SyndicatebyMaximor/)** · [GitHub](https://github.com/Anthony-Sin/AutoCadent-SyndicatebyMaximor) · [Architecture](docs/ARCHITECTURE.md) · [Demo notes](docs/DEMO.md)
+
+Built for **Syndicate by Maximor — Track 1: Automated Agent Engineering**.
+
+---
+
+## What this project is
+
+| It is | It is not |
+|---|---|
+| Agents that use third-party CAD/PCB tools (MCP: CadQuery, KiCad) | Natural-language SolidWorks |
+| An independent evaluator that **measures the B-rep**, not the spec | “The mesh compiled, so we’re done” |
+| A reflection loop that stores heuristics (`RULE-THICKNESS`, …) in SQLite | A hardcoded list of fake “9 rules memorized” |
+| Real exports: STEP, STL, CadQuery source, `.kicad_pcb`, Gerbers, DRC | A walking robot, motor controller, or print-certified part |
+
+**One sentence:** AutoCadent is a studio where hardware agents get better at *using tools* over time — because they remember why the last board tray was 1.2 mm thick.
+
+---
+
+## What you will see
+
+1. **Drop a brief** in Design Copilot (GLM-4.7-Flash on Tensormux, or local deterministic mode).
+2. **Sub-agents** decompose, build CAD, route a signal-breakout board, verify constraints.
+3. **Rev 1 can fail.** A valid solid with $t_{\text{wall}} = 1.2\,\text{mm}$ still fails the $2.4\,\text{mm}$ floor. That miss is the point.
+4. **Reflection** writes causal rules into memory. **Rev 2** retrieves them.
+5. **You take the engineering with you** — source, STEP/STL, KiCad bundle, measured report.
+
+Recorded default run (educational rover **Rove-1**):
+
+| Check | Rev 1 | Required | Rev 2 |
+|---|---:|---:|---:|
+| Chassis thickness | 1.2 mm | ≥ 2.4 mm | 2.4 mm |
+| Tray side walls | 1.2 mm | ≥ 2.4 mm | 2.4 mm |
+| Board-to-wall clearance | 0.1 mm | ≥ 0.8 mm | 0.8 mm |
+
+Cold start: **3/6** checks. After memory: **6/6**. Four fixed benchmark cases; one passes initially, all four pass after the repair policy. KiCad 10.0.5 DRC on the exemplar board: **0 violations, 0 unconnected** (five default ignored checks kept in the report).
+
+---
 
 ## Try it
 
-The published workspace is a **static artifact explorer**: orbit the actual CAD mesh, isolate parts, explode the assembly, inspect the failed and repaired revisions, compare benchmark cases, and download the CAD and board bundles. It does not run live agents on GitHub Pages.
+### Live site (no install)
 
-For live generation, install [uv](https://docs.astral.sh/uv/getting-started/installation/) and run:
+**https://anthony-sin.github.io/AutoCadent-SyndicatebyMaximor/**
+
+That page is a **static explorer of a real recorded run**: orbit the CadQuery mesh, isolate parts, explode the assembly, inspect failed vs repaired revisions, download CAD and board bundles.
+
+It does **not** run live agents in the browser. GitHub Pages cannot host OpenCASCADE or KiCad. The UI says this instead of faking geometry.
+
+### Live generation (your machine)
 
 ```sh
 uv sync --locked --python 3.12
 uv run uvicorn autocadent.api:app --host 127.0.0.1 --port 8766
 ```
 
-Open `http://127.0.0.1:8766`. Edit the dimensions, enter a brief, and submit. Local mode runs the real CAD kernel and a deterministic repair policy. The brief is recorded as intent; explicit dimension fields drive the fixed template. No LLM or arbitrary natural-language CAD capability is implied.
+Open http://127.0.0.1:8766 — edit dimensions, enter a brief, submit. Local mode runs the real CAD kernel and a deterministic repair policy.
 
-With AO installed, authenticated and this project registered, enable real worker dispatch:
+To dispatch a real AO worker:
 
 ```sh
 AUTOCADENT_ENABLE_AO=1 uv run uvicorn autocadent.api:app --host 127.0.0.1 --port 8766
 ```
 
-Use the connection menu to select **Supervisor → actual AO worker → evaluator**. The API calls `ao spawn` with `--harness` (default `opencode`, via `AUTOCADENT_AO_HARNESS`) and `--model` (default `opencode/muse-spark-1.3-contributor-free`, via `AUTOCADENT_AO_MODEL`); that worker runs the CAD job and returns its real `AO_SESSION_ID`. The checked-in [AO runtime report](docs/evidence/ao-runtime.json) records a successful dispatch through worker `autocadent-syndicatebymaximor-3`. Jobs are serialized, retained in `.runs/jobs/`, and time out after 15 minutes. Timed-out AO sessions require inspection/termination in the AO dashboard.
+Jobs are serialized, kept in `.runs/jobs/`, and time out after 15 minutes.
 
-### Your designs, saved in the browser
+### Designs in the browser
 
-The **Designs** tab is a client-side library — no account, no upload, no server. Everything is stored in the browser's `localStorage` for the current origin; nothing leaves your machine except the export files you download:
+The Designs tab is **localStorage only** — no account, no upload. Import/export `*.autocadent.json` bundles. Drafts without CAD are labeled `LOCAL DRAFT`. Live rebuilds still need the local runner.
 
-- **Import a design bundle** — choose a `.json` design file (the format produced by *Export bundle*). It is validated in-browser and added to the library with its spec and revision history.
-- **Create from the parametric template** — save the current workspace (dimensions + brief) as a named design. Drafts carry no CAD artifacts and are labeled `LOCAL DRAFT` honestly.
-- **Modify and rebuild** — open a design to restore its dimensions and brief, edit them, and submit. With the local runner connected, the live CAD job runs and an evaluated revision (with its job reference) is appended automatically.
-- **Save local revisions** — snapshot the current workspace into any design as a draft revision at any time.
-- **Export bundle** — download the design (name, description, spec, revision history) as `*.autocadent.json`, re-importable or shareable.
+---
 
-Fixed content is limited to exactly one placeholder: the recorded **Rove-1 example** workspace. Everything else is created, imported, or edited in the browser. On GitHub Pages the following genuinely cannot run in-browser: the CAD kernel or an AO worker (they need the local runner), and per-job STEP/STL/PCB downloads without that runner. The UI states this directly ("Saved in this browser only — no server copy", "Live CAD still needs the local runner") instead of faking geometry.
+## What’s in the box (honest scope)
 
-## What you can build
+**Rove-1** is an educational rover *assembly exemplar*: printable chassis, vent slots, M3 holes, board tray, sensor mast. Length 120–180 mm, width 80–110 mm, mast 35–75 mm. Board envelope 60 × 40 mm.
 
-Rove-1 is an educational rover **assembly/component exemplar**, with a rounded printable chassis, vent slots and M3 holes, a board tray, and a sensor mast. Length 120–180 mm, width 80–110 mm, mast 35–75 mm. Board envelope is fixed at 60 × 40 mm. Wheels, hubs, headers and sensors are assembly envelopes, not validated hardware. There are no modeled motors, axles, fasteners, board retention clips, or working drive system.
+Wheels, hubs, headers, and sensors are **envelopes**, not validated hardware. There are no modeled motors, axles, fasteners, retention clips, or a working drive.
 
-Downloadable outputs include executable CadQuery source with the exact spec, STL for the three structural parts, assembly STEP, mesh JSON, iteration reports and hashes. Run `generate.py` from the CAD ZIP in a CadQuery 2.6.1 environment to regenerate it.
+The KiCad board is a **signal breakout** (two 1×4 headers, four nets, four mounting holes) — **not** a motor controller. The Schematic tab is a net-derived connectivity diagram, not a native `.kicad_sch`.
 
-The fixed KiCad signal-breakout board has two 1×4 headers, four routed nets and four mounting holes. Its bundle includes `.kicad_pcb`, Gerbers, drill, BOM, connectivity data, board SVG and actual DRC output. It is **not** a motor controller; no power regulation, pull-ups, MCU or electrical functional testing are included. The Schematic tab explicitly displays a net-derived connectivity diagram, not a KiCad schematic file.
+The evaluator measures B-rep bounding boxes, planar wall offsets, and minimum solid distance. It is **not** a global min-wall analysis, collision audit, printability cert, or structural sim.
 
-## Measured evidence
+---
 
-The default run creates **18 valid solids** in both revisions. Geometric validity alone does not satisfy the design:
+## How it is built
 
-| Check | Initial | Repaired | Required |
-|---|---:|---:|---:|
-| Chassis thickness | 1.2 mm | 2.4 mm | ≥ 2.4 mm |
-| Tray side walls | 1.2 mm | 2.4 mm | ≥ 2.4 mm |
-| Board-to-sidewall clearance | 0.1 mm | 0.8 mm | ≥ 0.8 mm |
+```
+Brief → Orchestrator → CAD (CadQuery / OpenCASCADE)
+                     → PCB (KiCad / pcbnew)
+                     → Verifier (independent B-rep + DRC)
+                     → Reflection → SQLite heuristics → next revision
+```
 
-The evaluator measures B-rep bounding boxes, planar wall-face offsets and minimum solid distance. It also checks chassis length and tray edge margin. This is not a global minimum-wall analysis, assembly collision audit, printability certification or structural simulation.
+- **CadQuery 2.6.1** builds real solids. Tests swap the solid while leaving the spec unchanged so measurements cannot cheat.
+- **Repair policy** only lifts failed thickness / tray-wall / clearance to the required floor (max 3 iterations). Unsupported failures stay failures.
+- **MCP:** AutoCadent CAD server + KiCad MCP. The model gets live tool schemas — not a keyword dictionary.
+- **Memory:** episodic traces (tool, latency, tokens, pass/fail) + inspectable heuristics. The studio shows which rule fired.
+- **UI:** ivory workspace, Three.js Motion Lab (no iframe), vendored Three.js, FastAPI runner on loopback.
 
-The [fixed regression corpus](web/artifacts/benchmark.json) contains four cases: one passes initially; all four pass after the deterministic repair policy. These counts are real executions, **not general LLM benchmark percentages**. KiCad 10.0.5 reported zero DRC violations and zero unconnected items, with five default ignored checks retained in the report; schematic parity and electrical function were not verified.
-
-## Reproduce and test
+Reproduce:
 
 ```sh
 uv run python -m autocadent.pipeline --output .runs/example
 uv run python -m scripts.benchmark
 uv run pytest -q --disable-warnings
 uv run python scripts/check_artifacts.py
-# Requires KiCad 9/10 and its pcbnew Python binding; verified with KiCad 10.0.5:
+# KiCad 9/10 + pcbnew (verified 10.0.5):
 /usr/bin/python3 scripts/board.py
-# Actual MCP handshakes and calls:
 uv run python scripts/mcp_probe.py autocadent-cad --call inspect_spec
 uv run python scripts/mcp_probe.py kicad --call get_version
 ```
 
-See [MCP.md](docs/MCP.md) for project-scoped configuration and official package sources. BCI was inspected read-only; no credentials or settings were copied.
+Evidence and hashes: [docs/EVIDENCE.md](docs/EVIDENCE.md). MCP setup: [docs/MCP.md](docs/MCP.md).
 
-## Hosting and privacy
+---
 
-`web/` is a self-contained static site with vendored Three.js (MIT). Google Fonts is optional; system fallbacks work offline. GitHub Actions deploys the feature branch to Pages; PR #1 was approved and merged into `main` on 2026-09-05, and the live site serves the merged workspace (see [docs/EVIDENCE.md](docs/EVIDENCE.md)). The runner remains a separately configured local service.
+## Hosting
 
-The runner binds to loopback by default, validates host/origin, accepts bounded numeric inputs, and never executes user prose as code. Cross-origin access requires both `AUTOCADENT_ORIGINS` (an exact comma-separated allowlist) and `AUTOCADENT_TOKEN`. Enter the token in the connection dialog; it stays in browser memory. For a hosted runner, terminate TLS and enforce authentication for **all paths** at a reverse proxy, set `AUTOCADENT_HOSTS`, and keep AO/CAD on a private worker. Job artifacts are shareable through opaque UUID paths; do not include secrets in briefs. No hosted live runner or public credentials are deployed by this project.
+Push to `main` deploys `web/` to GitHub Pages. The runner is a separate local service (loopback, bounded numeric inputs, never executes user prose as code). No public live CAD runner and no credentials are shipped with this repo.
 
-## Development evidence and submission
+---
 
-Implementation was performed in AO worker `autocadent-syndicatebymaximor-2`, with an actual runtime job in worker `autocadent-syndicatebymaximor-3`. [Evidence and checkpoints](docs/EVIDENCE.md) distinguish implementation, deterministic CAD, MCP verification and runtime AO execution. No built-in subagents were used.
+## License / submission
 
-Team roster, recorded demo video and Devpost submission remain team submission tasks; names and dashboard session totals are not invented.
+Hackathon project for Syndicate by Maximor, Track 1. See the repo for source. Names, demo video, and Devpost roster are submission tasks — they are not invented here.
