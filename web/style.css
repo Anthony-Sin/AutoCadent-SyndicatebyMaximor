@@ -487,6 +487,7 @@ dialog .dark-button:hover{background:var(--teal-dark)}
 .chat-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .chat-citations{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .chat-citation{font:9px var(--mono);color:var(--muted);background:#f0eee5;padding:2px 8px;border-radius:3px;border:1px solid #e2dfd4}
+.chat-local-note{display:block;margin-top:8px;font:10px var(--mono);color:#b07830;background:#fdf6ec;padding:3px 8px;border-radius:3px;border:1px solid #ecdcb8}
 
 /* Full panels overlay */
 .explorer-full-panels{position:absolute;inset:0;z-index:5;background:var(--paper);overflow-y:auto;padding:24px 48px}
