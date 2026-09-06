@@ -18,7 +18,6 @@ jobs:
           sudo add-apt-repository -y ppa:kicad/kicad-8.0-releases
           sudo apt-get update
           sudo apt-get install -y kicad
-          # pcbnew may be pcbnew.py, pcbnew.pyi, or _pcbnew*.so depending on KiCad version.
           PCBNEW_DIR=$(find /usr/lib/python3* /usr/lib/kicad -name 'pcbnew*' -exec dirname {} \; 2>/dev/null | sort -u | head -1)
           if [ -z "$PCBNEW_DIR" ]; then
             PCBNEW_DIR=$(find /usr/lib -path '*/pcbnew*' -exec dirname {} \; 2>/dev/null | sort -u | head -1)
@@ -32,10 +31,7 @@ jobs:
           # sitecustomize.py for the pre-sync verification step only.
           if [ -n "$PCBNEW_DIR" ]; then
             SITE_DIR=$(python3 -c "import site; print([p for p in site.getsitepackages() if 'dist-packages' in p][0])")
-            cat <<SITECUSTOMIZE | sudo tee "$SITE_DIR/sitecustomize.py"
-import sys
-sys.path.insert(0, "$PCBNEW_DIR")
-SITECUSTOMIZE
+            printf 'import sys\nsys.path.insert(0, "%s")\n' "$PCBNEW_DIR" | sudo tee "$SITE_DIR/sitecustomize.py"
           fi
       - run: /usr/bin/python3 -c "import pcbnew; print('pcbnew OK:', pcbnew.__file__)"
       - run: uv sync --locked --python 3.12

@@ -24,14 +24,7 @@ MODEL_BOARD_SCRIPT = ROOT / "scripts" / "model_board.py"
 
 
 def _kicad_env():
-    """Build a subprocess env for /usr/bin/python3 that can find pcbnew.
-
-    uv run sets PYTHONHOME to its managed Python; that leaks into child
-    processes and makes system Python look for modules in the wrong place.
-    We strip PYTHONHOME and set PYTHONPATH to *only* the pcbnew directory
-    so the system Python finds pcbnew without letting other system packages
-    shadow venv dependencies (e.g. old typing_extensions).
-    """
+    """Strip PYTHONHOME and scope PYTHONPATH to pcbnew dir only."""
     env = {k: v for k, v in os.environ.items()
            if k not in ("PYTHONHOME", "PYTHONPATH")}
     pcbnew_dir = os.environ.get("PCBNEW_DIR", "")
