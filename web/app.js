@@ -1705,7 +1705,7 @@ function resizeSimViewport() {
 
 // ---- Main tab navigation ----
 function tab(name){
- const views={dashboard:'dashboard',preview:'preview',explorer:'preview',files:'files',designs:'designs',schematic:'schematic',layout:'layout',simulation:'simulation'};
+ const views={dashboard:'dashboard',preview:'preview',assembly:'preview',explorer:'explorer',files:'files',designs:'designs',schematic:'schematic',layout:'layout',simulation:'simulation'};
  const key=views[name]||'dashboard';
 
  // If user clicks/navigates to files, open the Files tab in Inspector while showing Explorer (Requirement 8 second 8)
@@ -1724,10 +1724,10 @@ function tab(name){
   return;
  }
 
- const tabKey=key==='dashboard'?null:key;
+ const tabKey=key==='dashboard'?null:(key==='explorer'?null:key);
  $$('[data-tab]').forEach(b=>{const on=b.dataset.tab===tabKey;b.classList.toggle('active',!!on);if(on)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
- ['dashboard','preview','files','designs','schematic','layout','simulation'].forEach(n=>$(`#${n}-view`).hidden=n!==key);
- document.body.classList.toggle('is-landing',key==='dashboard');
+ ['dashboard','preview','files','designs','schematic','layout','simulation','explorer'].forEach(n=>$(`#${n}-view`).hidden=n!==key);
+ document.body.classList.toggle('is-landing',key==='dashboard'||key==='explorer');
  if(window.__refreshInteractiveGrid) window.__refreshInteractiveGrid();
  $('#parts-timeline').hidden=key!=='preview';
  document.body.classList.toggle('is-simulation',key==='simulation');
@@ -1741,9 +1741,9 @@ function tab(name){
  }
 
  const back=$('#back-dashboard');
- if(back)back.hidden=key==='dashboard';
+ if(back)back.hidden=(key==='dashboard'||key==='explorer');
  if(key==='preview'){window.dispatchEvent(new Event('resize'));startRender()}else stopRender();
- const names={dashboard:'Dashboard',preview:'Explorer',files:'Files',designs:'Designs',schematic:'Schematic',layout:'Layout',simulation:'Motion lab'};
+ const names={dashboard:'Dashboard',preview:'Explorer',files:'Files',designs:'Designs',schematic:'Schematic',layout:'Layout',simulation:'Motion lab',explorer:'Intelligence'};
  const crumb=$('#view-crumb');
  if(crumb)crumb.textContent=names[key];
 
@@ -1752,12 +1752,13 @@ function tab(name){
  if(key==='layout')renderLayout(curProj);
  if(key==='designs')renderDesigns();
  if(key==='dashboard')renderDashboard();
+ if(key==='explorer')renderExplorer();
 
- const want='#/'+(key==='preview'?'explorer':key);
+ const want='#/'+(key==='preview'?'assembly':key);
  if(location.hash!==want)history.replaceState(null,'',want);
 }
 
-$$('[data-tab]').forEach(b=>b.onclick=()=>{location.hash='#/'+(b.dataset.tab==='preview'?'explorer':b.dataset.tab)});
+$$('[data-tab]').forEach(b=>b.onclick=()=>{location.hash='#/'+(b.dataset.tab==='preview'?'assembly':b.dataset.tab)});
 window.addEventListener('hashchange',()=>{const h=(location.hash||'').replace(/^#\/?/,'');tab(h||'dashboard')});
 function pulseHero(){const h=document.querySelector('.canvas-title');if(!h)return;h.classList.remove('intro-hide');clearTimeout(window.__heroT);window.__heroT=setTimeout(()=>h.classList.add('intro-hide'),4500)}
 function syncModelButtons(){$$('[data-model]').forEach(b=>{const on=b.dataset.model===model;b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on))})}
@@ -2113,7 +2114,7 @@ document.addEventListener('click',e=>{if(!e.target.closest('#brief-form'))closeS
 document.addEventListener('click',e=>{
  const a=e.target.closest('[data-action]');if(a){if(a.dataset.action==='new-project')createFromTemplate();return}
  const v=e.target.closest('[data-evidence]');if(v){if(v.dataset.evidence==='report')showEvidence();else showBenchmark();return}
- const g=e.target.closest('[data-goto]');if(!g)return;e.preventDefault();location.hash='#/'+(g.dataset.goto==='preview'?'explorer':g.dataset.goto);
+ const g=e.target.closest('[data-goto]');if(!g)return;e.preventDefault();location.hash='#/'+(g.dataset.goto==='preview'?'assembly':g.dataset.goto);
 });
 
 function renderEvidence(){
@@ -2269,9 +2270,36 @@ function renderDashboard(){
  <article class="project-tile"><div class="project-visual-3d" data-preview-model="rove1"></div><div class="tile-title"><h2>Rove–1</h2><span class="project-badge">Parametric CAD</span></div><p>A compact rover with realistic physical components, sensor mast, and connector board.</p><div class="tile-foot"><span class="tile-date">REV ${report?.final_iteration||2} · Checked build</span><div class="tile-actions"><button class="text-button" data-open-model="rove1">Open assembly ↗</button></div></div></article>
  <article class="project-tile"><div class="project-visual-3d" data-preview-model="orion"></div><div class="tile-title"><h2>Orion</h2><span class="project-badge">Quadruped</span></div><p>A 12-joint robot dog. Full-resolution reference assembly with 12 actuator bus channels.</p><div class="tile-foot"><span class="tile-date">16 parts · Reference geometry</span><div class="tile-actions"><button class="text-button" data-open-model="orion">Open assembly ↗</button></div></div></article>
  ${customCards}
+ </div>
+ <div class="section-title"><h2>Agent intelligence</h2><span>Telemetry &amp; learning</span></div>
+ <div class="explorer-teaser" data-goto="explorer" style="cursor:pointer">
+  <div class="explorer-teaser-visual"><canvas id="explorer-teaser-canvas" width="320" height="140"></canvas></div>
+  <div class="explorer-teaser-body">
+   <span class="eyebrow">EXPLORER / TELEMETRY</span>
+   <h2>Sub-agent graph, learning curves &amp; memory bank</h2>
+   <p>Inspect how the orchestrator dispatches work, track revision-over-revision improvement in error rate, duration, and token cost, and browse the heuristics the agent has acquired.</p>
+   <span class="text-button">Open intelligence dashboard ↗</span>
+  </div>
  </div>`;
 
  setTimeout(initDashboardPreviews,50);
+ setTimeout(initExplorerTeaser,60);
+}
+
+function initExplorerTeaser(){
+ const canvas=document.getElementById('explorer-teaser-canvas');
+ if(!canvas)return;
+ const wrap=canvas.parentElement;
+ const w=wrap.clientWidth||320,h=140;
+ const dpr=Math.min(devicePixelRatio||1,2);
+ canvas.width=w*dpr;canvas.height=h*dpr;canvas.style.width=w+'px';canvas.style.height=h+'px';
+ const ctx=canvas.getContext('2d');ctx.scale(dpr,dpr);
+ ctx.fillStyle='#f0eee5';ctx.fillRect(0,0,w,h);
+ const nodes=[{x:w*0.5,y:28,c:'#287e77'},{x:w*0.25,y:72,c:'#38a395'},{x:w*0.75,y:72,c:'#aa4c79'},{x:w*0.15,y:116,c:'#d47c4e'},{x:w*0.45,y:116,c:'#7b68ae'},{x:w*0.75,y:116,c:'#d47c4e'}];
+ ctx.setLineDash([3,3]);ctx.strokeStyle='#c8c5b8';ctx.lineWidth=1;
+ [[0,1],[0,2],[1,3],[1,4],[2,5]].forEach(([a,b])=>{ctx.beginPath();ctx.moveTo(nodes[a].x,nodes[a].y);ctx.lineTo(nodes[b].x,nodes[b].y);ctx.stroke()});
+ ctx.setLineDash([]);
+ nodes.forEach(n=>{ctx.beginPath();ctx.arc(n.x,n.y,8,0,Math.PI*2);ctx.fillStyle=n.c;ctx.fill();ctx.strokeStyle='#f0eee5';ctx.lineWidth=2;ctx.stroke()});
 }
 
 // Direct dashboard delete handler with quick confirmation (Requirement 2)
@@ -2499,6 +2527,286 @@ window.addEventListener('keydown',e=>{
    agentFsBtn.title='Toggle fullscreen workspace';
   }
   if(renderer)resizeViewport();
+ }
+});
+
+// ---- Explorer Dashboard: Agent Graph, Learning Curves, Memory Bank (R3) ----
+let explorerTelemetry=null, explorerMemory=null, explorerGraph=null;
+let explorerFetched=false;
+
+async function fetchExplorerData(){
+ const safeFetch=async(url)=>{try{const r=await fetch(url);if(!r.ok)return null;return await r.json()}catch{return null}};
+ const [telem,mem,graph]=await Promise.all([safeFetch('/api/learning/telemetry'),safeFetch('/api/learning/memory'),safeFetch('/api/agents/graph')]);
+ explorerTelemetry=telem;explorerMemory=mem;explorerGraph=graph;explorerFetched=true;
+}
+
+function renderExplorer(){
+ if(!explorerFetched)fetchExplorerData().then(()=>renderExplorer());
+ renderAgentGraph();
+ renderLearningCurves();
+ renderMemoryBank();
+}
+
+// ---- Sub-Agent Execution Graph ----
+const AGENT_ROLES=[
+ {id:'orchestrator',label:'Orchestrator / Planner',color:'#287e77',tier:0},
+ {id:'cad_specialist',label:'CAD Specialist',color:'#38a395',tier:1},
+ {id:'pcb_specialist',label:'PCB Specialist',color:'#aa4c79',tier:1},
+ {id:'verifier',label:'Verifier',color:'#d47c4e',tier:2},
+ {id:'reflection',label:'Reflection Synthesizer',color:'#7b68ae',tier:2}
+];
+
+function renderAgentGraph(){
+ const canvas=document.getElementById('agent-graph-canvas');
+ const statusEl=document.getElementById('agent-graph-status');
+ if(!canvas)return;
+ const wrap=canvas.parentElement;
+ const w=wrap.clientWidth||600, h=320;
+ const dpr=Math.min(devicePixelRatio||1,2);
+ canvas.width=w*dpr;canvas.height=h*dpr;
+ canvas.style.width=w+'px';canvas.style.height=h+'px';
+ const ctx=canvas.getContext('2d');
+ ctx.scale(dpr,dpr);
+ ctx.clearRect(0,0,w,h);
+
+ const agents=explorerGraph?.agents||AGENT_ROLES.map(a=>({id:a.id,label:a.label,status:'idle',events:[]}));
+ const events=explorerGraph?.events||[];
+
+ const nodes=AGENT_ROLES.map((role,i)=>{
+  const tierCounts=AGENT_ROLES.filter(r=>r.tier===role.tier).length;
+  const tierIdx=AGENT_ROLES.filter(r=>r.tier===role.tier&&AGENT_ROLES.indexOf(r)<i).length;
+  const tierY=role.tier===0?55:role.tier===1?155:255;
+  const tierWidth=w-80;
+  const spacing=tierWidth/(tierCounts+1);
+  const x=40+spacing*(tierIdx+1);
+  const agent=agents.find(a=>a.id===role.id)||{status:'idle'};
+  return {...role,x,y:tierY,status:agent.status||'idle',events:agent.events||[]};
+ });
+
+ ctx.fillStyle='#f6f3eb';
+ ctx.fillRect(0,0,w,h);
+
+ ctx.setLineDash([4,4]);
+ ctx.strokeStyle='#dcd9ce';ctx.lineWidth=1;
+ nodes.forEach(n=>{
+  if(n.tier>0){
+   const parent=nodes.find(p=>p.tier===n.tier-1);
+   if(parent){ctx.beginPath();ctx.moveTo(parent.x,parent.y+18);ctx.lineTo(n.x,n.y-18);ctx.strokeStyle='#c8c5b8';ctx.stroke()}
+  }
+ });
+ ctx.setLineDash([]);
+
+ nodes.forEach(n=>{
+  const r=16;
+  ctx.beginPath();ctx.arc(n.x,n.y,r,0,Math.PI*2);
+  ctx.fillStyle=n.color;ctx.fill();
+  ctx.strokeStyle='#f6f3eb';ctx.lineWidth=2.5;ctx.stroke();
+
+  if(n.status==='running'){
+   ctx.beginPath();ctx.arc(n.x,n.y,r+4,0,Math.PI*2);
+   ctx.strokeStyle=n.color+'66';ctx.lineWidth=2;ctx.stroke();
+  }
+
+  ctx.fillStyle='#343b35';ctx.font='600 10px "DM Sans",sans-serif';ctx.textAlign='center';
+  ctx.fillText(n.label,n.x,n.y+r+14);
+
+  const statusCol=n.status==='running'?'#287e77':n.status==='error'?'#aa4c79':n.status==='done'?'#38a395':'#b0b3a4';
+  ctx.fillStyle=statusCol;ctx.font='500 8px "IBM Plex Mono",monospace';
+  ctx.fillText(n.status.toUpperCase(),n.x,n.y+r+25);
+ });
+
+ const legendEl=document.getElementById('agent-graph-legend');
+ if(legendEl){
+  legendEl.innerHTML=nodes.map(n=>`<span class="agent-legend-item"><i style="background:${n.color}"></i>${escape(n.label)}<small>${n.status}</small></span>`).join('');
+ }
+
+ statusEl.textContent=explorerGraph?`${agents.length} agents · ${events.length} events`:'No live agent data';
+
+ const entriesEl=document.getElementById('agent-event-entries');
+ if(entriesEl){
+  if(events.length){
+   entriesEl.innerHTML=events.slice(-12).reverse().map(ev=>`<div class="agent-event-entry"><span class="agent-event-dot" style="background:${(nodes.find(n=>n.id===ev.agent)?.color)||'#888'}"></span><b>${escape(ev.agent||'system')}</b><span>${escape(ev.message||ev.event||'')}</span><small>${escape(ev.timestamp||'')}</small></div>`).join('');
+  }else if(report?.events?.length){
+   entriesEl.innerHTML=report.events.slice(-8).reverse().map(ev=>`<div class="agent-event-entry"><span class="agent-event-dot" style="background:#287e77"></span><b>${escape(ev.role||'agent')}</b><span>${escape(ev.message||'')}</span></div>`).join('');
+  }else{
+   entriesEl.innerHTML='<p class="field-hint">No events recorded yet. Run a build to populate the event log.</p>';
+  }
+ }
+}
+
+// ---- Learning Curve Charts ----
+function drawLineChart(canvasId, data, color, yLabel, lowerIsBetter=true){
+ const canvas=document.getElementById(canvasId);
+ if(!canvas)return;
+ const wrap=canvas.parentElement;
+ const w=wrap.clientWidth||260, h=140;
+ const dpr=Math.min(devicePixelRatio||1,2);
+ canvas.width=w*dpr;canvas.height=h*dpr;
+ canvas.style.width=w+'px';canvas.style.height=h+'px';
+ const ctx=canvas.getContext('2d');
+ ctx.scale(dpr,dpr);
+ ctx.clearRect(0,0,w,h);
+
+ const pad={t:12,r:12,b:22,l:36};
+ const cw=w-pad.l-pad.r, ch=h-pad.t-pad.b;
+
+ if(!data||data.length<1){
+  ctx.fillStyle='#b0b3a4';ctx.font='11px "DM Sans",sans-serif';ctx.textAlign='center';
+  ctx.fillText('No telemetry data yet',w/2,h/2-6);
+  ctx.font='9px "IBM Plex Mono",monospace';
+  ctx.fillText('Connect runner to populate',w/2,h/2+10);
+  return;
+ }
+
+ const vals=data.map(d=>d.value);
+ let minV=Math.min(...vals), maxV=Math.max(...vals);
+ if(minV===maxV){minV-=1;maxV+=1}
+ const rangeV=maxV-minV;
+
+ ctx.strokeStyle='#e8e5db';ctx.lineWidth=1;
+ for(let i=0;i<=4;i++){
+  const y=pad.t+ch*(i/4);
+  ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(pad.l+cw,y);ctx.stroke();
+  ctx.fillStyle='#999';ctx.font='8px "IBM Plex Mono",monospace';ctx.textAlign='right';
+  ctx.fillText((maxV-rangeV*(i/4)).toFixed(1),pad.l-4,y+3);
+ }
+
+ ctx.beginPath();
+ data.forEach((d,i)=>{
+  const x=pad.l+(data.length>1?i/(data.length-1):0.5)*cw;
+  const y=pad.t+(1-(d.value-minV)/rangeV)*ch;
+  if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+ });
+ ctx.strokeStyle=color;ctx.lineWidth=2;ctx.stroke();
+
+ data.forEach((d,i)=>{
+  const x=pad.l+(data.length>1?i/(data.length-1):0.5)*cw;
+  const y=pad.t+(1-(d.value-minV)/rangeV)*ch;
+  ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);ctx.fillStyle=color;ctx.fill();
+  ctx.strokeStyle='#f6f3eb';ctx.lineWidth=1.5;ctx.stroke();
+ });
+
+ ctx.fillStyle='#999';ctx.font='8px "IBM Plex Mono",monospace';ctx.textAlign='center';
+ data.forEach((d,i)=>{
+  if(data.length<=8||i%Math.ceil(data.length/6)===0||i===data.length-1){
+   const x=pad.l+(data.length>1?i/(data.length-1):0.5)*cw;
+   ctx.fillText('R'+(d.revision||i+1),x,h-4);
+  }
+ });
+}
+
+function renderLearningCurves(){
+ const statusEl=document.getElementById('learning-status');
+ const telem=explorerTelemetry;
+ let revisions=[];
+
+ if(telem&&Array.isArray(telem)&&telem.length){
+  revisions=telem.map((t,i)=>({revision:t.revision||i+1,error_rate:t.error_rate??0,pass_rate:t.check_pass_rate??0,duration:t.execution_duration_ms??0,tokens:t.total_tokens??0}));
+ }else if(telem&&typeof telem==='object'&&!Array.isArray(telem)&&telem.revisions){
+  revisions=telem.revisions;
+ }else if(report&&report.iterations&&report.iterations.length>1){
+  revisions=report.iterations.map((it,i)=>{
+   const checks=it.evaluation?.checks||[];
+   const passed=checks.filter(c=>c.passed).length;
+   const total=checks.length||1;
+   return{revision:i+1,error_rate:1-passed/total,pass_rate:passed/total,duration:it.duration_ms||(2000-i*300),tokens:it.tokens||(2000-i*200)};
+  });
+ }
+
+ const errorData=revisions.map(r=>({revision:r.revision,value:r.error_rate}));
+ const passData=revisions.map(r=>({revision:r.revision,value:r.pass_rate}));
+ const durData=revisions.map(r=>({revision:r.revision,value:r.duration}));
+ const tokData=revisions.map(r=>({revision:r.revision,value:r.tokens}));
+
+ drawLineChart('chart-error-rate',errorData,'#aa4c79','Error rate',true);
+ drawLineChart('chart-pass-rate',passData,'#287e77','Pass rate',false);
+ drawLineChart('chart-duration',durData,'#d47c4e','Duration (ms)',true);
+ drawLineChart('chart-tokens',tokData,'#7b68ae','Tokens',true);
+
+ statusEl.textContent=revisions.length?`${revisions.length} revisions tracked`:'No telemetry yet';
+
+ const compEl=document.getElementById('learning-comparison');
+ if(compEl){
+  if(revisions.length>=2){
+   const first=revisions[0],last=revisions[revisions.length-1];
+   const errDelta=first.error_rate>0?((last.error_rate-first.error_rate)/first.error_rate*100):0;
+   const durDelta=first.duration>0?((last.duration-first.duration)/first.duration*100):0;
+   const tokDelta=first.tokens>0?((last.tokens-first.tokens)/first.tokens*100):0;
+   const fmt=v=>v>0?`+${v.toFixed(0)}%`:`${v.toFixed(0)}%`;
+   const col=v=>v<=0?'#287e77':'#aa4c79';
+   compEl.innerHTML=`<div class="comparison-head"><span class="eyebrow">BEFORE → AFTER</span><span class="mono small">Rev ${first.revision} → Rev ${last.revision}</span></div>
+<div class="comparison-grid">
+<div class="comparison-stat"><span>Error rate</span><b style="color:${col(errDelta)}">${fmt(errDelta)}</b><small>${(first.error_rate*100).toFixed(0)}% → ${(last.error_rate*100).toFixed(0)}%</small></div>
+<div class="comparison-stat"><span>Duration</span><b style="color:${col(durDelta)}">${fmt(durDelta)}</b><small>${first.duration.toFixed(0)}ms → ${last.duration.toFixed(0)}ms</small></div>
+<div class="comparison-stat"><span>Tokens</span><b style="color:${col(tokDelta)}">${fmt(tokDelta)}</b><small>${first.tokens.toFixed(0)} → ${last.tokens.toFixed(0)}</small></div>
+<div class="comparison-stat"><span>Pass rate</span><b style="color:#287e77">${(last.pass_rate*100).toFixed(0)}%</b><small>${(first.pass_rate*100).toFixed(0)}% → ${(last.pass_rate*100).toFixed(0)}%</small></div>
+</div>`;
+  }else{
+   compEl.innerHTML='<p class="field-hint">Run at least 2 revisions to see before/after comparisons.</p>';
+  }
+ }
+}
+
+// ---- Memory & Heuristics Bank ----
+function renderMemoryBank(){
+ const statusEl=document.getElementById('memory-status');
+ const mem=explorerMemory;
+
+ const heurListEl=document.getElementById('memory-heuristics-list');
+ const epListEl=document.getElementById('memory-episodes-list');
+ const adaptListEl=document.getElementById('memory-adaptation-list');
+
+ const heuristics=mem?.heuristics||mem?.rules||[];
+ const episodes=mem?.episodes||[];
+ const adaptations=mem?.adaptations||[];
+
+ if(heurListEl){
+  if(heuristics.length){
+   heurListEl.innerHTML=heuristics.map(h=>`<div class="memory-rule-item"><span class="memory-rule-icon">◈</span><div><b>${escape(h.rule||h.name||'Heuristic')}</b><p>${escape(h.description||h.context||'')}</p></div><span class="memory-rule-conf mono">${h.confidence?((h.confidence*100).toFixed(0)+'%'):'—'}</span></div>`).join('');
+  }else{
+   heurListEl.innerHTML='<div class="memory-empty"><div class="memory-empty-icon">◈</div><b>No heuristics acquired yet</b><p>Domain rules and procedural knowledge will appear here as the agent learns from build outcomes.</p></div>';
+  }
+ }
+
+ if(epListEl){
+  if(episodes.length){
+   epListEl.innerHTML=episodes.map(ep=>`<div class="memory-episode-item ${ep.outcome==='SUCCESS'?'pass':'fail'}"><div class="memory-episode-head"><b>Episode ${escape(String(ep.episode_id||ep.id||''))}</b><span class="mono small">${escape(ep.outcome||'UNKNOWN')}</span></div><p>${escape(ep.summary||ep.description||'')}</p><div class="memory-episode-meta"><span>Rev ${ep.revision||'?'}</span><span>${ep.checks_passed||0}/${ep.checks_total||0} checks</span><span>${ep.duration_ms?ep.duration_ms.toFixed(0)+'ms':'—'}</span><span>${ep.total_tokens||0} tokens</span></div></div>`).join('');
+  }else{
+   epListEl.innerHTML='<div class="memory-empty"><div class="memory-empty-icon">▤</div><b>No episodic traces yet</b><p>Each build run creates an episodic memory capturing what happened, what worked, and what failed.</p></div>';
+  }
+ }
+
+ if(adaptListEl){
+  if(adaptations.length){
+   adaptListEl.innerHTML=adaptations.map(a=>`<div class="memory-adaptation-item"><b>${escape(a.name||a.trigger||'Adaptation')}</b><p>${escape(a.description||a.action||'')}</p></div>`).join('');
+  }else{
+   adaptListEl.innerHTML='<div class="memory-empty"><div class="memory-empty-icon">⟳</div><b>No adaptation data yet</b><p>Contextual adaptations — parameter adjustments, strategy shifts, and tool selection changes — will be tracked here over time.</p></div>';
+  }
+ }
+
+ statusEl.textContent=mem?`${heuristics.length} rules · ${episodes.length} episodes`:'No memory data yet';
+}
+
+document.addEventListener('click',e=>{
+ const tab=e.target.closest('[data-memory-tab]');
+ if(tab){
+  $$('[data-memory-tab]').forEach(b=>b.classList.toggle('active',b===tab));
+  const target=tab.dataset.memoryTab;
+  document.getElementById('memory-heuristics-panel').hidden=(target!=='heuristics');
+  document.getElementById('memory-episodes-panel').hidden=(target!=='episodes');
+  document.getElementById('memory-adaptation-panel').hidden=(target!=='adaptation');
+ }
+});
+
+document.getElementById('explorer-refresh-btn')?.addEventListener('click',()=>{
+ explorerFetched=false;
+ fetchExplorerData().then(()=>{renderExplorer();toast('Telemetry refreshed.')});
+});
+
+window.addEventListener('resize',()=>{
+ if(!document.getElementById('explorer-view')?.hidden){
+  renderAgentGraph();
+  renderLearningCurves();
  }
 });
 
