@@ -28,11 +28,7 @@ jobs:
           # Skipped inside venvs (sys.base_prefix != sys.prefix) to preserve locked deps.
           if [ -n "$PCBNEW_DIR" ]; then
             SITE_DIR=$(python3 -c "import site; print([p for p in site.getsitepackages() if 'dist-packages' in p][0])")
-            cat <<SITECUSTOMIZE | sudo tee "$SITE_DIR/sitecustomize.py"
-import sys
-if sys.base_prefix == sys.prefix:
-    sys.path.insert(0, "$PCBNEW_DIR")
-SITECUSTOMIZE
+            printf 'import sys\nif sys.base_prefix == sys.prefix:\n    sys.path.insert(0, "%s")\n' "$PCBNEW_DIR" | sudo tee "$SITE_DIR/sitecustomize.py"
           fi
       - run: /usr/bin/python3 -c "import pcbnew; print('pcbnew OK:', pcbnew.__file__)"
       - run: uv sync --locked --python 3.12
