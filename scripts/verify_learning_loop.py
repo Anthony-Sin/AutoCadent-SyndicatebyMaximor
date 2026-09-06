@@ -5,6 +5,8 @@ cache hits, memory size, rules acquired, rules pruned, and retrieved rule IDs.
 """
 import argparse
 import json
+import os
+import signal
 import sys
 import tempfile
 import time
@@ -23,6 +25,8 @@ NAIVE_SPEC = {
     "thickness": 1.2, "wall": 1.2, "clearance": 0.1, "mast_height": 52.0,
 }
 
+
+REV_TIMEOUT_S = int(os.environ.get("BENCHMARK_REV_TIMEOUT", "120"))
 
 def run_benchmark(db_path: str | None = None, max_revisions: int = 5) -> dict:
     with tempfile.TemporaryDirectory() as tmp:
@@ -59,6 +63,23 @@ def run_benchmark(db_path: str | None = None, max_revisions: int = 5) -> dict:
             passed = sum(1 for c in result["checks"] if c["passed"])
             total = len(result["checks"])
             status = "SUCCESS" if result["passed"] else "FAILED"
+
+            if duration_ms > REV_TIMEOUT_S * 1000:
+                status = "TIMEOUT"
+                results.append({
+                    "revision": rev, "status": status,
+                    "first_pass_pass": False,
+                    "checks_passed": passed, "checks_total": total,
+                    "duration_ms": round(duration_ms, 1),
+                    "estimated_total_tokens": 0,
+                    "token_provenance": "synthetic_estimate",
+                    "tool_failures": 0,
+                    "retrieved_rule_ids": [],
+                    "rules_applied": 0, "rules_acquired": 0, "rules_pruned": 0,
+                    "memory_size": 0, "cache_hits": total_cache_hits,
+                    "timeout": True,
+                })
+                break
 
             est_prompt = 400 if not retrieved_rules else max(50, 400 - len(retrieved_rules) * 30)
             est_completion = 120

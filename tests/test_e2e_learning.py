@@ -50,6 +50,8 @@ KICAD_PYTHON = os.getenv("AUTOCADENT_KICAD_PYTHON", "/usr/bin/python3")
 MODEL_BOARD_SCRIPT = ROOT / "scripts" / "model_board.py"
 BENCHMARK_SCRIPT = ROOT / "scripts" / "verify_learning_loop.py"
 
+HAS_PCBNEW = bool(os.environ.get("PCBNEW_DIR", ""))
+
 # Progressive testability imports
 try:
     from autocadent.memory import MemoryStore, Heuristic, EpisodicTrace
@@ -438,7 +440,7 @@ class TestTier1FeatureCoverage:
     def test_tier1_f13_automated_multi_revision_benchmark_script_discovery(self):
         """F13: Automated multi-revision benchmark script exists and is executable."""
         assert BENCHMARK_SCRIPT.is_file(), f"Benchmark script {BENCHMARK_SCRIPT} does not exist"
-        proc = subprocess.run([sys.executable, str(BENCHMARK_SCRIPT), "--help"], capture_output=True, text=True)
+        proc = subprocess.run([sys.executable, str(BENCHMARK_SCRIPT), "--help"], capture_output=True, text=True, timeout=30)
         # Help or execution check
         assert proc.returncode in [0, 2]
 
@@ -1041,6 +1043,7 @@ class TestTier4RealWorldApplicationScenarios:
         # 4. Latency reduction: Warm runs execute faster than cold run
         assert episodes[1]["duration_ms"] < episodes[0]["duration_ms"]
 
+    @pytest.mark.skipif(not HAS_PCBNEW, reason="pcbnew/KiCad not available (PCBNEW_DIR not set)")
     def test_tier4_cad_and_kicad_end_to_end_full_production_assembly(self, tmp_path):
         """Tier 4: Complete rover CAD + PCB production assembly passes all constraints."""
         # Spec with valid learned engineering parameters
