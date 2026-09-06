@@ -1,7 +1,12 @@
-"""Tests for the MCP bridge: list tools, call tools, API endpoints, episode recording."""
+"""Tests for the MCP bridge: list tools, call tools, API endpoints, episode recording.
+
+All tests have wall-clock bounds. The kicad MCP test skips unless the server is already
+installed and can start within 10s — no cold uvx downloads in CI.
+"""
 import json
 import os
 import shutil
+import subprocess
 import time
 from pathlib import Path
 import pytest
@@ -124,12 +129,50 @@ class TestMcpApiEndpoints:
         assert resp.status_code == 422
 
 
+class TestHangSafety:
+    def test_wall_timeout_fires_on_hung_server(self):
+        """A deliberately unreachable command must time out, not hang forever."""
+        import tempfile, stat
+        fake_script = Path(tempfile.mktemp(suffix='.sh'))
+        fake_script.write_text('#!/bin/sh\nsleep 300\n')
+        fake_script.chmod(fake_script.stat().st_mode | stat.S_IEXEC)
+        try:
+            monkeypatch_configs = {
+                'fake-hung': {
+                    'command': str(fake_script),
+                    'args': [],
+                    'cwd': '.',
+                }
+            }
+            original = mcp_bridge._load_server_configs
+            mcp_bridge._load_server_configs = lambda: monkeypatch_configs
+            try:
+                start = time.monotonic()
+                with pytest.raises((TimeoutError, BaseExceptionGroup)):
+                    mcp_bridge.list_tools('fake-hung')
+                elapsed = time.monotonic() - start
+                assert elapsed < 30, f'Timeout took too long: {elapsed}s'
+                assert elapsed >= 5, f'Timeout fired too early: {elapsed}s'
+            finally:
+                mcp_bridge._load_server_configs = original
+        finally:
+            fake_script.unlink(missing_ok=True)
+
+    def test_probe_server_returns_false_on_unavailable(self):
+        assert mcp_bridge.probe_server('nonexistent-server', timeout=5.0) is False
+
+    def test_probe_server_returns_true_for_autocadent_cad(self):
+        assert mcp_bridge.probe_server('autocadent-cad', timeout=30.0) is True
+
+
 class TestKicadMcpDrc:
     @pytest.mark.skipif(
         not shutil.which('uvx'),
         reason='uvx not available; kicad MCP requires uvx',
     )
     def test_kicad_drc_via_mcp_with_real_board(self, tmp_path):
+        if not mcp_bridge.probe_server('kicad', timeout=10.0):
+            pytest.skip('kicad MCP server not installed or cannot start within 10s')
         spec = {
             'kind': 'signal_breakout',
             'nets': ['VCC', 'GND', 'SDA', 'SCL'],
@@ -138,7 +181,7 @@ class TestKicadMcpDrc:
         }
         (tmp_path / 'spec.json').write_text(json.dumps(spec))
         kicad_py = os.getenv('AUTOCADENT_KICAD_PYTHON', '/usr/bin/python3')
-        proc = __import__('subprocess').run(
+        proc = subprocess.run(
             [kicad_py, str(ROOT / 'scripts/model_board.py'),
              '--spec', str(tmp_path / 'spec.json'),
              '--output', str(tmp_path / 'board')],
