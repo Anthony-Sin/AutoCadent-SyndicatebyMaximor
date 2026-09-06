@@ -301,9 +301,9 @@ class MemoryStore:
                 conn.close()
         return pruned
 
-    def cache_get(self, tool_name: str, args: dict) -> dict | None:
+    def cache_get(self, tool_name: str, args: dict, version: str = "") -> dict | None:
         args_hash = hashlib.sha256(json.dumps(args, sort_keys=True).encode()).hexdigest()
-        cache_key = f"{tool_name}:{args_hash}"
+        cache_key = f"{tool_name}:{version}:{args_hash}"
         with self._lock:
             conn = self._connect()
             try:
@@ -321,10 +321,10 @@ class MemoryStore:
             finally:
                 conn.close()
 
-    def cache_put(self, tool_name: str, args: dict, result: dict):
+    def cache_put(self, tool_name: str, args: dict, result: dict, version: str = ""):
         import time
         args_hash = hashlib.sha256(json.dumps(args, sort_keys=True).encode()).hexdigest()
-        cache_key = f"{tool_name}:{args_hash}"
+        cache_key = f"{tool_name}:{version}:{args_hash}"
         with self._lock:
             conn = self._connect()
             try:
@@ -333,6 +333,24 @@ class MemoryStore:
                     "VALUES (?, ?, ?, ?, ?, COALESCE((SELECT hit_count FROM tool_cache WHERE cache_key=?), 0))",
                     (cache_key, tool_name, args_hash, json.dumps(result), time.time(), cache_key),
                 )
+                conn.commit()
+            finally:
+                conn.close()
+
+    def cache_invalidate(self, tool_name: str | None = None, version: str | None = None):
+        with self._lock:
+            conn = self._connect()
+            try:
+                if tool_name and version:
+                    conn.execute("DELETE FROM tool_cache WHERE tool_name = ? AND cache_key LIKE ?",
+                                 (tool_name, f"%:{version}:%"))
+                elif tool_name:
+                    conn.execute("DELETE FROM tool_cache WHERE tool_name = ?", (tool_name,))
+                elif version:
+                    conn.execute("DELETE FROM tool_cache WHERE cache_key LIKE ?",
+                                 (f"%:{version}:%",))
+                else:
+                    conn.execute("DELETE FROM tool_cache")
                 conn.commit()
             finally:
                 conn.close()
