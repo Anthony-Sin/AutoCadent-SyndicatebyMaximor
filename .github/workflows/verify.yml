@@ -34,21 +34,7 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y libgl1 libglu1-mesa xvfb
       - name: Install KiCad for pcbnew
         run: |
-          # Retry PPA addition — Launchpad API occasionally returns 504 Gateway Timeout
-          for i in 1 2 3; do
-            echo "Attempt $i to add KiCad PPA..."
-            if sudo add-apt-repository -y ppa:kicad/kicad-8.0-releases; then
-              echo "PPA added successfully"
-              break
-            fi
-            if [ $i -lt 3 ]; then
-              echo "PPA addition failed, retrying in 10s..."
-              sleep 10
-            else
-              echo "Failed to add PPA after 3 attempts"
-              exit 1
-            fi
-          done
+          sudo add-apt-repository -y ppa:kicad/kicad-8.0-releases
           sudo apt-get update
           sudo apt-get install -y kicad
           PCBNEW_DIR=$(find /usr/lib/python3* /usr/lib/kicad -name 'pcbnew*' -exec dirname {} \; 2>/dev/null | sort -u | head -1)
