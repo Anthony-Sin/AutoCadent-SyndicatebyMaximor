@@ -51,3 +51,47 @@ Integrity mode: development
 - [ ] The Motion Lab tab renders a native Three.js 3D viewport without external iframes.
 - [ ] A terrain selector enables toggling between at least 3 distinct environments (e.g. Martian Surface, Lunar Surface, Proving Ground Grid) with responsive rendering.
 - [ ] Robot motion kinematics animate smoothly within the 3D scene matching the application theme.
+
+## 2026-09-06T02:29:25Z
+
+Build an end-to-end self-improving multi-agent system integrated into AutoCadent (serving at http://127.0.0.1:8766) that automates hardware/CAD design workflows, actively learns and optimizes tool/MCP usage over successive runs through persistent memory and self-reflection, and exposes real-time sub-agent execution graphs, learning curves, and memory growth in the Explorer dashboard (`#/explorer`).
+
+Working directory: /home/ANT/projects/AutoCadent-SyndicatebyMaximor
+Integrity mode: demo
+
+## Requirements
+
+### R1. Self-Improving Agent Engine with Growing Memory & Reflection Loop
+Implement an autonomous learning agent loop that manages the educational rover design workflow across revisions. The engine must:
+- Record structured episodic traces of tool invocations, inputs, execution times, token costs, and outcomes (success/failure/validation errors).
+- Implement a post-run self-reflection agent that analyzes failure modes (e.g., OpenCASCADE kernel geometry errors, KiCad trace clearance violations, out-of-bound mast heights) and synthesizes actionable procedural rules into a persistent memory store.
+- Query and apply learned procedural rules in subsequent revisions to avoid repeat failures, reduce prompt token overhead, and increase first-pass check success.
+
+### R2. Third-Party Tool & Domain Logic Learning (CadQuery, KiCad, MCP)
+Integrate the agent with the CAD/hardware toolchain (CadQuery/OpenCASCADE for solid modeling, KiCad for PCB layout & DRC, and model provider/MCP endpoints):
+- The agent must discover and internalize complex contextual logic from tool feedback (e.g., wall thickness thresholds, minimum trace spacing, fillet radii limits).
+- Provide quantitative evidence that tool call efficiency (fewer failed attempts, faster convergence) improves over sequential runs.
+
+### R3. Interactive Explorer Dashboard with Telemetry, Sub-Agents, and Learning Curves
+Enhance the AutoCadent frontend at `#/explorer` and `#/dashboard` with rich visualization panels:
+- **Sub-Agent Execution Graph**: Visual hierarchy showing agent roles (Orchestrator/Planner, CAD Specialist, PCB Specialist, Verifier, and Reflection Synthesizer) with live status and event logs.
+- **Learning Curve Charts**: Interactive charts displaying revision-over-revision trends: error rate reduction, check pass rates, execution duration, and token cost-efficiency.
+- **Memory & Heuristics Bank**: An inspectable memory explorer showing acquired domain rules, past mistakes, and contextual adaptation over time.
+
+### R4. Automated Multi-Revision Benchmark Verification
+Implement an automated benchmark script (`scripts/verify_learning_loop.py` or equivalent) that executes a multi-revision run, validates that the agent successfully learns from initial failure cases, verifies all 6/6 design checks pass, and outputs benchmark telemetry confirming cost-effectiveness and error reduction.
+
+## Acceptance Criteria
+
+### Learning & Memory Growth
+- [ ] Multi-revision run logs show concrete evidence of memory growth and self-reflection between Revision 1 and Revision N.
+- [ ] Benchmark verifies that error recovery and first-pass pass rate improve measurably on repeated tasks using the learned memory bank.
+- [ ] Memory store persists acquired rules across sessions in structured format (SQLite/JSON).
+
+### Toolchain Integration
+- [ ] Solid geometry (CadQuery B-rep) and PCB routing (KiCad DRC) pass all design constraints (6/6 checks) upon final revision.
+- [ ] Sub-agent tool executions, latency, and token metrics are captured accurately in run manifests.
+
+### Explorer UI Telemetry
+- [ ] AutoCadent Explorer UI (`#/explorer`) renders sub-agent activity flows, memory inspector, and learning charts without JavaScript errors.
+- [ ] Telemetry displays clear comparisons demonstrating the agent getting faster, cheaper, and more accurate over time.
