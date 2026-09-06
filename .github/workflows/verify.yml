@@ -7,12 +7,13 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
-      - run: sudo apt-get update && sudo apt-get install -y libgl1 libglu1-mesa
+      - run: sudo apt-get update && sudo apt-get install -y libgl1 libglu1-mesa xvfb
       - name: Install KiCad for pcbnew
         run: |
           sudo add-apt-repository -y ppa:kicad/kicad-8.0-releases
@@ -33,6 +34,10 @@ jobs:
             SITE_DIR=$(python3 -c "import site; print([p for p in site.getsitepackages() if 'dist-packages' in p][0])")
             printf 'import sys\nsys.path.insert(0, "%s")\n' "$PCBNEW_DIR" | sudo tee "$SITE_DIR/sitecustomize.py"
           fi
+      - name: Start virtual display for KiCad/wxWidgets
+        run: |
+          Xvfb :99 -screen 0 1920x1080x24 &
+          echo "DISPLAY=:99" >> $GITHUB_ENV
       - run: /usr/bin/python3 -c "import pcbnew; print('pcbnew OK:', pcbnew.__file__)"
       - run: uv sync --locked --python 3.12
       - run: uv run pytest -q --disable-warnings
