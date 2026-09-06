@@ -62,12 +62,34 @@ def generate(spec, out):
                     kicad_mod_dir=candidate; break
         if kicad_mod_dir:
             fp_lib_table.write_text(f'(fp_lib_table (version 7)(libs (lib (name KiCad)(type KiCad)(uri "{kicad_mod_dir}")(options "")(descr ""))))\n')
-    commands=[['pcb','drc','--format','json','-o',str(out/'drc.json'),str(path)],['pcb','export','gerbers','-o',str(out/'gerbers')+'/',str(path)],['pcb','export','drill','-o',str(out/'gerbers')+'/',str(path)],['pcb','export','svg','--layers','F.Cu,F.SilkS,Edge.Cuts','--page-size-mode','2','--mode-single','-o',str(out/'board.svg'),str(path)]]
+    gerber_dir=out/'gerbers'; gerber_dir.mkdir(parents=True,exist_ok=True)
+    # Native pcbnew gerber/drill export (kicad-cli 8.0 gerber export exits 4 on CI runners).
+    saved=k.LoadBoard(str(path))
+    opts=k.PCB_PLOT_PARAMS()
+    opts.SetOutputDirectory(str(gerber_dir))
+    opts.SetFormat(k.PLOT_FORMAT_GERBER)
+    opts.SetUseGerberAttributes(True)
+    opts.SetExcludeEdgesFromBoardOutline(True)
+    opts.SetPlotFrameRef(False)
+    pc=k.PLOT_CONTROLLER(saved)
+    pc.SetPlotParams(opts)
+    for layer_id,layer_name in [(k.F_Cu,'F.Cu'),(k.F_SilkS,'F.SilkS'),(k.Edge_Cuts,'Edge.Cuts')]:
+        pc.SetLayer(layer_id)
+        pc.OpenPlotfile(layer_name,False,f'{layer_name}.gbr')
+        pc.PlotLayer()
+        pc.ClosePlot()
+    # Excellon drill
+    ew=k.EXCELLON_WRITER(saved)
+    ew.SetFormat(True)
+    ew.SetOptions(False,False,k.VECTOR2I(0,0),False)
+    ew.CreateDrillandMapFilesSet(str(gerber_dir),False,False)
+    del pc,ew
+    # DRC and SVG via kicad-cli
+    commands=[['pcb','drc','--format','json','-o',str(out/'drc.json'),str(path)],['pcb','export','svg','--layers','F.Cu,F.SilkS,Edge.Cuts','--page-size-mode','2','--mode-single','-o',str(out/'board.svg'),str(path)]]
     for args in commands:
         r=subprocess.run(['kicad-cli',*args],capture_output=True,text=True,timeout=45)
         if r.returncode!=0:
-            raise subprocess.CalledProcessError(r.returncode,r.args,f"kicad-cli stderr: {r.stderr}\nstdout: {r.stdout}")
-    saved = k.LoadBoard(str(path))
+            raise RuntimeError(f"kicad-cli {' '.join(args)} failed (exit {r.returncode}):\nstderr: {r.stderr}\nstdout: {r.stdout}")
     pads = [pad for fp in saved.GetFootprints() if fp.GetReference() in ['J1','J2'] for pad in fp.Pads()]
     tracks = list(saved.GetTracks())
     actual_nets = [{'name':name,'pins':sorted(f'{p.GetParentFootprint().GetReference()}.{p.GetNumber()}' for p in pads if p.GetNetname()==name)} for name in names]
