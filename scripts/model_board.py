@@ -77,19 +77,18 @@ def generate(spec, out):
         pc.PlotLayer()
         pc.ClosePlot()
     del pc
-    # Excellon drill — defensive API
+    # Excellon drill — CreateDrillandMapFilesSet(outDir, genDrill, genMap)
     try:
         ew=k.EXCELLON_WRITER(saved)
         fmt_fn=getattr(ew,'SetFormat',None)
         if fmt_fn: fmt_fn(True)
         opt_fn=getattr(ew,'SetOptions',None)
         if opt_fn: opt_fn(False,False,k.VECTOR2I(0,0),False)
-        # Try multiple method names for drill file creation
-        for method_name in ['CreateDrillandMapFilesSet','CreateDrillAndMapFilesSet','CreateDrillFile']:
+        for method_name in ['CreateDrillandMapFilesSet','CreateDrillAndMapFilesSet']:
             fn=getattr(ew,method_name,None)
             if fn:
                 try:
-                    fn(str(gerber_dir),False,False)
+                    fn(str(gerber_dir),True,False)
                     break
                 except Exception:
                     continue
