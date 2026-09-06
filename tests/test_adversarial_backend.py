@@ -600,7 +600,8 @@ class TestKiCadPCBCompilerAdversarialEdgeCases:
         spec_path.write_text(json.dumps(spec))
 
         cmd = [KICAD_PYTHON, str(MODEL_BOARD_SCRIPT), "--spec", str(spec_path), "--output", str(out)]
-        res = subprocess.run(cmd, capture_output=True, text=True, timeout=90)
+        kicad_env = {k: v for k, v in os.environ.items() if k != "PYTHONHOME"}
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=90, env=kicad_env)
         assert res.returncode == 0, f"KiCad compilation failed on {combo_name}: {res.stderr}"
 
         eval_data = json.loads((out / "evaluation.json").read_text())
@@ -620,7 +621,8 @@ class TestKiCadPCBCompilerAdversarialEdgeCases:
         """Empirically verifies SWIG iterator next patch and p.GetParentFootprint().GetReference()."""
         spec = {"kind": "signal_breakout", "nets": ["VCC", "GND", "SIG"], "connector_spacing": 25.0, "trace_width": 0.4}
         (tmp_path / "pcb-spec.json").write_text(json.dumps(spec))
-        subprocess.run([KICAD_PYTHON, str(MODEL_BOARD_SCRIPT), "--spec", str(tmp_path / "pcb-spec.json"), "--output", str(tmp_path)], check=True)
+        kicad_env = {k: v for k, v in os.environ.items() if k != "PYTHONHOME"}
+        subprocess.run([KICAD_PYTHON, str(MODEL_BOARD_SCRIPT), "--spec", str(tmp_path / "pcb-spec.json"), "--output", str(tmp_path)], check=True, env=kicad_env)
 
         verify_script = f"""
 import pcbnew as k
@@ -636,7 +638,7 @@ refs = {{p.GetParentFootprint().GetReference() for p in pads}}
 assert refs == {{'J1', 'J2', 'H1', 'H2', 'H3', 'H4'}}
 print('PASS')
 """
-        res = subprocess.run([KICAD_PYTHON, "-c", verify_script], capture_output=True, text=True)
+        res = subprocess.run([KICAD_PYTHON, "-c", verify_script], capture_output=True, text=True, env=kicad_env)
         assert res.returncode == 0
         assert "PASS" in res.stdout
 

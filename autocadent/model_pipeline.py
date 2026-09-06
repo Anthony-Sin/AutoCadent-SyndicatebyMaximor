@@ -21,10 +21,12 @@ class CompilerError(RuntimeError):
 
 def compile_board(design, folder):
     save_json(folder/'pcb-input.json', design.pcb.model_dump())
+    kicad_env = {k: v for k, v in os.environ.items() if k != "PYTHONHOME"}
     try:
         subprocess.run([os.getenv('AUTOCADENT_KICAD_PYTHON','/usr/bin/python3'),
                         str(ROOT/'scripts/model_board.py'),'--spec',str(folder/'pcb-input.json'),
-                        '--output',str(folder/'board')],check=True,capture_output=True,timeout=200)
+                        '--output',str(folder/'board')],check=True,capture_output=True,timeout=200,
+                        env=kicad_env)
     except subprocess.TimeoutExpired:
         raise CompilerError('PCB compiler timeout') from None
     except (OSError, subprocess.CalledProcessError):

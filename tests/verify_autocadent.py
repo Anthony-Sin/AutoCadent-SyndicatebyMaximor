@@ -158,7 +158,8 @@ def verify_criterion_3_pcb_generation():
             "--output",
             str(out_dir),
         ]
-        res = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        kicad_env = {k: v for k, v in os.environ.items() if k != "PYTHONHOME"}
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=120, env=kicad_env)
         subchecks.append(("KiCad CLI exit code 0", res.returncode == 0))
 
         if res.returncode == 0:
