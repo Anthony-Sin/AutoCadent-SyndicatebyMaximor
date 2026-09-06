@@ -50,7 +50,7 @@ class EpisodicTrace:
 class MemoryStore:
     def __init__(self, db_path: str = "memory.db"):
         self.db_path = db_path
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self._init_db()
 
     def _connect(self):
