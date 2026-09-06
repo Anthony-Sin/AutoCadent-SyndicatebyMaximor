@@ -24,16 +24,17 @@ jobs:
           fi
           echo "PCBNEW_DIR=$PCBNEW_DIR"
           echo "AUTOCADENT_KICAD_PYTHON=/usr/bin/python3" >> $GITHUB_ENV
-          # Use sitecustomize.py for system Python only — avoids PYTHONPATH leaking into venv
+          # Isolation: sitecustomize.py adds pcbnew to system Python sys.path ONLY.
+          # Skipped inside venvs (sys.base_prefix != sys.prefix) to preserve locked deps.
           if [ -n "$PCBNEW_DIR" ]; then
             SITE_DIR=$(python3 -c "import site; print([p for p in site.getsitepackages() if 'dist-packages' in p][0])")
-            echo 'import sys; sys.path.insert(0, "'$PCBNEW_DIR'")' | sudo tee "$SITE_DIR/sitecustomize.py"
+            cat <<SITECUSTOMIZE | sudo tee "$SITE_DIR/sitecustomize.py"
+import sys
+if sys.base_prefix == sys.prefix:
+    sys.path.insert(0, "$PCBNEW_DIR")
+SITECUSTOMIZE
           fi
-          # Remove conflicting system typing_extensions that shadows venv's newer version
-          sudo rm -f /usr/lib/python3/dist-packages/typing_extensions.py /usr/lib/python3/dist-packages/typing_extensions-*.dist-info 2>/dev/null
-          sudo rm -rf /usr/lib/python3/dist-packages/typing_extensions-*.dist-info 2>/dev/null
       - run: /usr/bin/python3 -c "import pcbnew; print('pcbnew OK:', pcbnew.__file__)"
-      - run: python3 -c "import typing_extensions; print('typing_extensions OK:', typing_extensions.__file__)"
       - run: uv sync --locked --python 3.12
       - run: uv run pytest -q --disable-warnings
       - run: uv run python -m scripts.benchmark
