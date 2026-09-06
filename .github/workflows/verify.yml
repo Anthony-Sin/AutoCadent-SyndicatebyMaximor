@@ -23,15 +23,13 @@ jobs:
           if [ -z "$PCBNEW_DIR" ]; then
             PCBNEW_DIR=$(find /usr/lib -path '*/pcbnew*' -exec dirname {} \; 2>/dev/null | sort -u | head -1)
           fi
-          echo "PCBNEW_DIR=$PCBNEW_DIR"
+          echo "PCBNEW_DIR=$PCBNEW_DIR" >> $GITHUB_ENV
           echo "AUTOCADENT_KICAD_PYTHON=/usr/bin/python3" >> $GITHUB_ENV
-          # PYTHONPATH is inherited by /usr/bin/python3 subprocesses spawned from uv run pytest.
-          # uv run sets PYTHONHOME which overrides system Python's site-packages; PYTHONPATH
-          # survives that override and ensures pcbnew is found regardless.
-          if [ -n "$PCBNEW_DIR" ]; then
-            echo "PYTHONPATH=$PCBNEW_DIR" >> $GITHUB_ENV
-          fi
-          # sitecustomize.py as fallback for direct system Python invocations.
+          # NOTE: Do NOT export PYTHONPATH here — it would leak into the uv/pytest
+          # process and let old system packages (e.g. typing_extensions) shadow venv ones.
+          # Instead, test helpers pass PYTHONPATH=PCBNEW_DIR only to the /usr/bin/python3
+          # subprocess that runs model_board.py.
+          # sitecustomize.py for the pre-sync verification step only.
           if [ -n "$PCBNEW_DIR" ]; then
             SITE_DIR=$(python3 -c "import site; print([p for p in site.getsitepackages() if 'dist-packages' in p][0])")
             cat <<SITECUSTOMIZE | sudo tee "$SITE_DIR/sitecustomize.py"

@@ -21,7 +21,11 @@ class CompilerError(RuntimeError):
 
 def compile_board(design, folder):
     save_json(folder/'pcb-input.json', design.pcb.model_dump())
-    kicad_env = {k: v for k, v in os.environ.items() if k != "PYTHONHOME"}
+    kicad_env = {k: v for k, v in os.environ.items()
+                 if k not in ("PYTHONHOME", "PYTHONPATH")}
+    pcbnew_dir = os.environ.get("PCBNEW_DIR", "")
+    if pcbnew_dir:
+        kicad_env["PYTHONPATH"] = pcbnew_dir
     try:
         subprocess.run([os.getenv('AUTOCADENT_KICAD_PYTHON','/usr/bin/python3'),
                         str(ROOT/'scripts/model_board.py'),'--spec',str(folder/'pcb-input.json'),

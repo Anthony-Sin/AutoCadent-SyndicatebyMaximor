@@ -28,9 +28,15 @@ def _kicad_env():
 
     uv run sets PYTHONHOME to its managed Python; that leaks into child
     processes and makes system Python look for modules in the wrong place.
-    Drop it and keep PYTHONPATH (which carries the pcbnew directory).
+    We strip PYTHONHOME and set PYTHONPATH to *only* the pcbnew directory
+    so the system Python finds pcbnew without letting other system packages
+    shadow venv dependencies (e.g. old typing_extensions).
     """
-    env = {k: v for k, v in os.environ.items() if k != "PYTHONHOME"}
+    env = {k: v for k, v in os.environ.items()
+           if k not in ("PYTHONHOME", "PYTHONPATH")}
+    pcbnew_dir = os.environ.get("PCBNEW_DIR", "")
+    if pcbnew_dir:
+        env["PYTHONPATH"] = pcbnew_dir
     return env
 
 

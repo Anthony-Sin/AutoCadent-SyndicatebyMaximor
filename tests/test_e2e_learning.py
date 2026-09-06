@@ -89,8 +89,13 @@ HAS_GRAPH_API = any(r.path == "/api/agents/graph" for r in api.app.routes)
 
 
 def _kicad_env():
-    """Strip PYTHONHOME (set by uv run) so /usr/bin/python3 finds pcbnew."""
-    return {k: v for k, v in os.environ.items() if k != "PYTHONHOME"}
+    """Strip PYTHONHOME and scope PYTHONPATH to pcbnew dir only."""
+    env = {k: v for k, v in os.environ.items()
+           if k not in ("PYTHONHOME", "PYTHONPATH")}
+    pcbnew_dir = os.environ.get("PCBNEW_DIR", "")
+    if pcbnew_dir:
+        env["PYTHONPATH"] = pcbnew_dir
+    return env
 
 
 def run_kicad_model_board(spec_dict: dict, out_dir: Path) -> subprocess.CompletedProcess:
