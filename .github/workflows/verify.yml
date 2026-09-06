@@ -13,6 +13,27 @@ jobs:
         with:
           enable-cache: true
       - run: sudo apt-get update && sudo apt-get install -y libgl1 libglu1-mesa
+      - name: Install KiCad for pcbnew
+        run: |
+          sudo add-apt-repository -y ppa:kicad/kicad-8.0-releases
+          sudo apt-get update
+          sudo apt-get install -y kicad
+          PCBNEW_DIR=$(find /usr/lib/python3* /usr/lib/kicad -name pcbnew.py -exec dirname {} \; 2>/dev/null | head -1)
+          if [ -z "$PCBNEW_DIR" ]; then
+            PCBNEW_DIR=$(find /usr/lib -path '*/pcbnew.py' -exec dirname {} \; 2>/dev/null | head -1)
+          fi
+          echo "PCBNEW_DIR=$PCBNEW_DIR"
+          echo "AUTOCADENT_KICAD_PYTHON=/usr/bin/python3" >> $GITHUB_ENV
+          # Use sitecustomize.py for system Python only — avoids PYTHONPATH leaking into venv
+          if [ -n "$PCBNEW_DIR" ]; then
+            SITE_DIR=$(python3 -c "import site; print([p for p in site.getsitepackages() if 'dist-packages' in p][0])")
+            echo 'import sys; sys.path.insert(0, "'$PCBNEW_DIR'")' | sudo tee "$SITE_DIR/sitecustomize.py"
+          fi
+          # Remove conflicting system typing_extensions that shadows venv's newer version
+          sudo rm -f /usr/lib/python3/dist-packages/typing_extensions.py /usr/lib/python3/dist-packages/typing_extensions-*.dist-info 2>/dev/null
+          sudo rm -rf /usr/lib/python3/dist-packages/typing_extensions-*.dist-info 2>/dev/null
+      - run: /usr/bin/python3 -c "import pcbnew; print('pcbnew OK:', pcbnew.__file__)"
+      - run: python3 -c "import typing_extensions; print('typing_extensions OK:', typing_extensions.__file__)"
       - run: uv sync --locked --python 3.12
       - run: uv run pytest -q --disable-warnings
       - run: uv run python -m scripts.benchmark
