@@ -24,9 +24,10 @@ jobs:
           fi
           echo "PCBNEW_DIR=$PCBNEW_DIR"
           echo "AUTOCADENT_KICAD_PYTHON=/usr/bin/python3" >> $GITHUB_ENV
-          # The KiCad PPA pins an old system typing_extensions that lacks Sentinel,
-          # breaking pydantic_core. Upgrade it so both system and venv Python work.
-          sudo pip install --break-system-packages 'typing_extensions>=4.12'
+          # The KiCad PPA pins an old system typing_extensions (4.10.0) that lacks Sentinel,
+          # breaking pydantic_core. The debian package can't be uninstalled by pip (no RECORD),
+          # so use --ignore-installed to overlay a newer version in pip's site-packages.
+          sudo pip install --break-system-packages --ignore-installed 'typing_extensions>=4.12'
           # Make pcbnew importable by /usr/bin/python3 subprocesses.
           if [ -n "$PCBNEW_DIR" ]; then
             echo "PYTHONPATH=$PCBNEW_DIR" >> $GITHUB_ENV
