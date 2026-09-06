@@ -12,6 +12,7 @@ from .addon import build_addon, evaluate_addon
 from .cad import build, evaluate
 from .pipeline import export, save_json
 from .provider import ProviderError
+from . import mcp_bridge
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -35,7 +36,19 @@ def compile_board(design, folder):
         raise CompilerError('PCB compiler timeout') from None
     except (OSError, subprocess.CalledProcessError):
         raise CompilerError('PCB compiler unavailable or failed; requires pcbnew and kicad-cli') from None
-    return json.loads((folder/'board/evaluation.json').read_text())
+    result = json.loads((folder/'board/evaluation.json').read_text())
+    pcb_path = folder/'board'/'custom-breakout.kicad_pcb'
+    mcp_drc = mcp_bridge.run_drc_via_mcp(str(pcb_path))
+    if mcp_drc is not None:
+        result['mcp_drc_episode'] = {
+            'episode_id': mcp_drc['episode_id'],
+            'server': mcp_drc['server'],
+            'tool': mcp_drc['tool'],
+            'status': mcp_drc['status'],
+            'latency_ms': mcp_drc['latency_ms'],
+            'error': mcp_drc['error'],
+        }
+    return result
 
 
 def export_design(parts, folder, design):
