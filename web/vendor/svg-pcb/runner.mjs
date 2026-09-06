@@ -155,6 +155,7 @@ process.stdin.on("end", () => {
     }
 
     process.stdout.write(JSON.stringify(result));
+    process.exit(0);
   } catch (err) {
     const result = { svg: null, metrics: null, paths: null, error: err.message };
     process.stdout.write(JSON.stringify(result));
