@@ -25,11 +25,17 @@ class LearningPipeline:
         duration_ms = (time.monotonic() - start) * 1000
 
         episode_id = f"{episode_prefix}-{self.revision}"
+        est_prompt = 400 if not applied_rules else 200
+        est_completion = 120
         metrics = {
             "duration_ms": round(duration_ms, 1),
-            "prompt_tokens": 400 if not applied_rules else 200,
-            "completion_tokens": 120,
-            "total_tokens": (400 if not applied_rules else 200) + 120,
+            "prompt_tokens": None,
+            "completion_tokens": None,
+            "total_tokens": None,
+            "estimated_prompt_tokens": est_prompt,
+            "estimated_completion_tokens": est_completion,
+            "estimated_total_tokens": est_prompt + est_completion,
+            "token_provenance": "synthetic_estimate",
             "checks_passed": sum(1 for c in result["checks"] if c["passed"]),
             "checks_total": len(result["checks"]),
             "tool_calls": 1,
@@ -46,7 +52,8 @@ class LearningPipeline:
                 "spec": spec_dict,
                 "evaluation": result,
                 "duration_ms": duration_ms,
-                "total_tokens": metrics["total_tokens"],
+                "estimated_total_tokens": metrics["estimated_total_tokens"],
+                "token_provenance": "synthetic_estimate",
             }
             heuristics = self.reflector.reflect(result, trace)
             for h in heuristics:

@@ -13,6 +13,21 @@ jobs:
         with:
           enable-cache: true
       - run: sudo apt-get update && sudo apt-get install -y libgl1 libglu1-mesa
+      - name: Install KiCad for pcbnew
+        run: |
+          sudo add-apt-repository -y ppa:kicad/kicad-8.0-releases
+          sudo apt-get update
+          sudo apt-get install -y kicad
+          PCBNEW_DIR=$(find /usr/lib/python3* /usr/lib/kicad -name pcbnew.py -exec dirname {} \; 2>/dev/null | head -1)
+          if [ -z "$PCBNEW_DIR" ]; then
+            PCBNEW_DIR=$(find /usr/lib -path '*/pcbnew.py' -exec dirname {} \; 2>/dev/null | head -1)
+          fi
+          echo "PCBNEW_DIR=$PCBNEW_DIR"
+          if [ -n "$PCBNEW_DIR" ]; then
+            echo "PYTHONPATH=$PCBNEW_DIR:${PYTHONPATH:-}" >> $GITHUB_ENV
+            echo "AUTOCADENT_KICAD_PYTHON=/usr/bin/python3" >> $GITHUB_ENV
+          fi
+      - run: /usr/bin/python3 -c "import pcbnew; print('pcbnew OK:', pcbnew.__file__)"
       - run: uv sync --locked --python 3.12
       - run: uv run pytest -q --disable-warnings
       - run: uv run python -m scripts.benchmark

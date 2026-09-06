@@ -40,11 +40,17 @@ def run_benchmark(db_path: str | None = None, max_revisions: int = 5) -> dict:
             status = "SUCCESS" if result["passed"] else "FAILED"
 
             episode_id = f"bench-rev-{rev}"
+            est_prompt = 400 if not applied else 200
+            est_completion = 120
             metrics = {
                 "duration_ms": round(duration_ms, 1),
-                "prompt_tokens": 400 if not applied else 200,
-                "completion_tokens": 120,
-                "total_tokens": (400 if not applied else 200) + 120,
+                "prompt_tokens": None,
+                "completion_tokens": None,
+                "total_tokens": None,
+                "estimated_prompt_tokens": est_prompt,
+                "estimated_completion_tokens": est_completion,
+                "estimated_total_tokens": est_prompt + est_completion,
+                "token_provenance": "synthetic_estimate",
                 "checks_passed": passed,
                 "checks_total": total,
                 "tool_calls": 1,
@@ -63,7 +69,8 @@ def run_benchmark(db_path: str | None = None, max_revisions: int = 5) -> dict:
                 "revision": rev, "status": status,
                 "checks_passed": passed, "checks_total": total,
                 "duration_ms": round(duration_ms, 1),
-                "total_tokens": metrics["total_tokens"],
+                "estimated_total_tokens": metrics["estimated_total_tokens"],
+                "token_provenance": "synthetic_estimate",
                 "tool_failures": metrics["tool_failures"],
                 "rules_applied": len(applied),
             })
@@ -86,12 +93,15 @@ def run_benchmark(db_path: str | None = None, max_revisions: int = 5) -> dict:
         "telemetry": telemetry,
         "memory_bank": bank,
         "cost_effectiveness": {
-            "cold_tokens": results[0]["total_tokens"] if results else 0,
-            "warm_tokens": results[-1]["total_tokens"] if results else 0,
-            "token_reduction_pct": (
-                round((1 - results[-1]["total_tokens"] / results[0]["total_tokens"]) * 100, 1)
-                if results and results[0]["total_tokens"] > 0 else 0
+            "provenance": "synthetic_estimate",
+            "cold_estimated_tokens": results[0]["estimated_total_tokens"] if results else 0,
+            "warm_estimated_tokens": results[-1]["estimated_total_tokens"] if results else 0,
+            "estimated_token_reduction_pct": (
+                round((1 - results[-1]["estimated_total_tokens"] / results[0]["estimated_total_tokens"]) * 100, 1)
+                if results and results[0]["estimated_total_tokens"] > 0 else 0
             ),
+            "actual_tokens": None,
+            "note": "No LLM provider integrated; estimates are structural placeholders based on rule application state",
         },
     }
 
